@@ -1,0 +1,85 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+dist
+dist-ssr
+*.local
+
+# Python Environment & Cache
+api/venv/
+api/__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+project-bolt-sb1-me5ur3pb.zip
+# Data & AI Model Files
+api/pdfs/
+api/faiss_store/
+api/uploads/
+api/temp/
+api/archive.zip
+*.index
+*.model
+*.bin
+*.safetensors
+
+# Environment Variables & Secrets
+.env
+.env.*
+!.env.example
+api/.env
+api/.env.*
+!api/.env.example
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+.temp/
+.tmp/
+
+# Test coverage
+coverage/
+*.cover
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# HuggingFace Cache
+.cache/
+transformers_cache/
+
+# Legal Document Processing (sensitive files)
+confidential_uploads/
+private_cases/
+temp_analysis/

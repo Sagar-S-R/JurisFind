@@ -1,0 +1,211 @@
+"""
+Legal Chatbot Agent using LangChain and Groq
+Specialized for judicial and legal domain questions only
+"""
+import os
+from typing import Dict, Any, List
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from groq import Groq
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
+class LegalChatbotAgent:
+    def __init__(self):
+        """Initialize the Legal Chatbot Agent"""
+        # Initialize Groq client
+        self.groq_api_key = os.getenv("GROQ_API_KEY")
+        if not self.groq_api_key:
+            raise ValueError("GROQ_API_KEY environment variable not set")
+        
+        self.groq_client = Groq(api_key=self.groq_api_key)
+        
+        # Chat history for context
+        self.chat_history = []
+        
+        # Legal domain filter template
+        self.domain_filter_template = ChatPromptTemplate.from_template("""
+        You are a domain filter for a legal AI assistant. Your task is to determine if a question is related to the judicial system, legal matters, or law.
+
+        Question: {question}
+
+        Respond with ONLY "LEGAL" if the question is about:
+        - Laws, statutes, regulations
+        - Court procedures, judicial processes
+        - Legal concepts, terminology
+        - Rights, obligations, legal remedies
+        - Legal cases, precedents
+        - Legal professions (judges, lawyers, etc.)
+        - Constitutional matters
+        - Legal documentation
+        - Criminal, civil, corporate, or any area of law
+
+        Respond with ONLY "NON-LEGAL" if the question is about:
+        - General knowledge not related to law
+        - Personal advice unrelated to legal matters
+        - Technology, science, entertainment (unless legally relevant)
+        - Casual conversation
+        - Non-legal professional advice
+
+        Response:
+        """)
+        
+        # Legal chatbot response template
+        self.legal_chat_template = ChatPromptTemplate.from_template("""
+        You are an expert legal AI assistant specializing in the judicial system and legal matters. You provide accurate, professional, and helpful information about law and legal processes.
+
+        Chat History:
+        {chat_history}
+
+        Current Question: {question}
+
+        Guidelines:
+        1. Provide accurate legal information and explanations
+        2. Use appropriate legal terminology but explain complex concepts
+        3. Mention when legal advice should be sought from a qualified attorney
+        4. Reference relevant laws, cases, or legal principles when applicable
+        5. Be professional and authoritative in your responses
+        6. If you're unsure about specific legal details, acknowledge limitations
+        7. Focus on educational and informational content about law
+
+        Important: This is for informational purposes only and does not constitute legal advice.
+
+        Response:
+        """)
+
+    def is_legal_question(self, question: str) -> bool:
+        """Filter to check if question is legal domain related"""
+        try:
+            # Format the prompt
+            prompt = self.domain_filter_template.format(question=question)
+            
+            # Call Groq API for domain filtering
+            response = self.groq_client.chat.completions.create(
+                model="llama3-70b-8192",
+                messages=[
+                    {"role": "system", "content": "You are a domain classification assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1,  # Low temperature for consistent classification
+                max_tokens=10
+            )
+            
+            result = response.choices[0].message.content.strip().upper()
+            return result == "LEGAL"
+            
+        except Exception as e:
+            # If filtering fails, default to allowing the question
+            print(f"Domain filtering error: {e}")
+            return True
+
+    def get_legal_response(self, question: str) -> str:
+        """Get response for legal questions"""
+        try:
+            # Format chat history for context
+            history_text = ""
+            if self.chat_history:
+                history_text = "\n".join([
+                    f"User: {item['question']}\nAssistant: {item['answer'][:200]}..."
+                    for item in self.chat_history[-3:]  # Last 3 exchanges for context
+                ])
+            
+            # Format the prompt
+            prompt = self.legal_chat_template.format(
+                chat_history=history_text,
+                question=question
+            )
+            
+            # Call Groq API
+            response = self.groq_client.chat.completions.create(
+                model="llama3-70b-8192",
+                messages=[
+                    {"role": "system", "content": "You are an expert legal AI assistant."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.3,  # Slightly higher for more natural conversation
+                max_tokens=1024
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            raise Exception(f"Error getting legal response: {str(e)}")
+
+    def chat(self, question: str) -> Dict[str, Any]:
+        """Main chat function with legal domain filtering"""
+        try:
+            # Clean and validate input
+            question = question.strip()
+            if not question:
+                return {
+                    "success": False,
+                    "error": "Please provide a question.",
+                    "response": None,
+                    "is_legal": False
+                }
+            
+            # Check if question is legal domain related
+            is_legal = self.is_legal_question(question)
+            
+            if not is_legal:
+                return {
+                    "success": True,
+                    "response": "I'm a specialized legal AI assistant focused on judicial and legal matters. Please ask questions related to law, legal procedures, court systems, or legal concepts. I can help with understanding legal terminology, court processes, types of law, legal rights, and similar topics.",
+                    "is_legal": False,
+                    "domain_filtered": True
+                }
+            
+            # Get legal response
+            response = self.get_legal_response(question)
+            
+            # Add to chat history
+            self.chat_history.append({
+                "question": question,
+                "answer": response,
+                "timestamp": None  # Could add timestamp if needed
+            })
+            
+            # Keep only last 10 exchanges to manage memory
+            if len(self.chat_history) > 10:
+                self.chat_history = self.chat_history[-10:]
+            
+            return {
+                "success": True,
+                "response": response,
+                "is_legal": True,
+                "domain_filtered": False
+            }
+            
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "response": None,
+                "is_legal": is_legal if 'is_legal' in locals() else False
+            }
+
+    def clear_history(self):
+        """Clear chat history"""
+        self.chat_history.clear()
+        return {"success": True, "message": "Chat history cleared"}
+
+    def get_chat_stats(self) -> Dict[str, Any]:
+        """Get chatbot statistics"""
+        return {
+            "chat_history_length": len(self.chat_history),
+            "model_used": "llama3-70b-8192",
+            "domain_filtering": True,
+            "specialization": "Legal and Judicial Systems"
+        }
+
+# Global chatbot instance
+legal_chatbot = None
+
+def get_legal_chatbot():
+    """Get or create the global legal chatbot instance"""
+    global legal_chatbot
+    if legal_chatbot is None:
+        legal_chatbot = LegalChatbotAgent()
+    return legal_chatbot
