@@ -7,19 +7,32 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Dependencies
-node_modules
-dist
-dist-ssr
+# Dependencies (frontend)
+frontend/node_modules/
+frontend/dist/
+frontend/dist-ssr/
+frontend/.vite/
+frontend/.eslintcache
 *.local
 
-# Python Environment & Cache
+# Dependencies (python virtualenvs)
+.venv/
+venv/
+env/
+api/.venv/
 api/venv/
+api/env/
+
+# Python Environment & Cache
 api/__pycache__/
 **/__pycache__/
 *.py[cod]
 *$py.class
 *.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
 
 project-bolt-sb1-me5ur3pb.zip
 # Data & AI Model Files
@@ -40,6 +53,9 @@ api/archive.zip
 api/.env
 api/.env.*
 !api/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 # Editor directories and files
 .vscode/*
@@ -70,6 +86,9 @@ Thumbs.db
 coverage/
 *.cover
 .coverage
+.coverage.*
+coverage.xml
+pytest.xml
 htmlcov/
 
 # Jupyter Notebook

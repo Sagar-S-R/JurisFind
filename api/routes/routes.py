@@ -2,10 +2,17 @@ from fastapi import APIRouter, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
-from search_service import get_searcher
-from legal_agent import get_agent
-from legal_chatbot import get_legal_chatbot
-from confidential_pdf import get_pdf_processor
+import sys, os
+
+# Ensure api/ is on sys.path for namespace package imports
+_API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _API_DIR not in sys.path:
+    sys.path.insert(0, _API_DIR)
+
+from services.search_service import get_searcher
+from agents.legal_agent import get_agent
+from agents.legal_chatbot import get_legal_chatbot
+from confidential.confidential_pdf import get_pdf_processor
 import os
 
 # Create router for API routes
@@ -204,8 +211,8 @@ async def search_cases_get(
 async def get_pdf_file(filename: str):
     """Serve PDF files directly."""
     try:
-        # Construct the PDF file path
-        pdf_dir = os.path.join(os.path.dirname(__file__), "pdfs")
+        # Construct the PDF file path (api/pdfs)
+        pdf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "pdfs"))
         pdf_path = os.path.join(pdf_dir, filename)
         
         # Check if file exists
@@ -235,7 +242,7 @@ async def get_pdf_file(filename: str):
 async def analyze_document(filename: str):
     """Analyze a legal document using the LangChain agent."""
     try:
-        pdf_path = os.path.join(os.path.dirname(__file__), "pdfs", filename)
+        pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "pdfs", filename))
         if not os.path.exists(pdf_path):
             raise HTTPException(status_code=404, detail="PDF not found")
         
@@ -361,7 +368,7 @@ async def upload_confidential_pdf(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Only PDF files are allowed")
         
         processor = get_pdf_processor()
-        temp_path = processor.save_uploaded_file(file)
+        processor.save_uploaded_file(file)
         
         return UploadResponse(
             success=True,
@@ -446,9 +453,7 @@ async def cleanup_confidential_pdf(filename: str):
     """Clean up confidential PDF and its embeddings."""
     try:
         processor = get_pdf_processor()
-        result = processor.cleanup_uploaded_file(filename)
-        
-        return result
+        return processor.cleanup_uploaded_file(filename)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

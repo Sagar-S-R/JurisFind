@@ -3,20 +3,33 @@ Legal Chatbot Agent using LangChain and Groq
 Specialized for judicial and legal domain questions only
 """
 import os
-from typing import Dict, Any, List
+from pathlib import Path
+from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 from groq import Groq
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Load environment variables explicitly from api/.env (alongside this file)
+_dotenv_path = Path(__file__).with_name(".env")
+load_dotenv(dotenv_path=_dotenv_path, override=False)
 
 class LegalChatbotAgent:
     def __init__(self):
         """Initialize the Legal Chatbot Agent"""
         # Initialize Groq client
         self.groq_api_key = os.getenv("GROQ_API_KEY")
+        # Trim accidental surrounding quotes or whitespace
+        if self.groq_api_key:
+            self.groq_api_key = self.groq_api_key.strip().strip('\"').strip("'")
+        # Masked log of key presence for diagnostics
+        try:
+            masked = (
+                f"{self.groq_api_key[:4]}...{self.groq_api_key[-4:]}"
+                if self.groq_api_key and len(self.groq_api_key) >= 8 else "(missing or too short)"
+            )
+            print(f"GROQ_API_KEY detected: {masked} | .env path: {_dotenv_path}")
+        except Exception:
+            pass
         if not self.groq_api_key:
             raise ValueError("GROQ_API_KEY environment variable not set")
         

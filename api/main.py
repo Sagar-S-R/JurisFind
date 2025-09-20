@@ -1,11 +1,29 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes import router
+try:
+    from routes.routes import router
+except ImportError:
+    import sys, os
+    _API_DIR = os.path.abspath(os.path.dirname(__file__))
+    if _API_DIR not in sys.path:
+        sys.path.insert(0, _API_DIR)
+    from routes.routes import router  # type: ignore
+from pathlib import Path
+from dotenv import load_dotenv
 import os
 import uvicorn
 
 def create_app():
     """Create and configure the FastAPI app."""
+    # Load env from api/.env early so imports downstream can see it
+    _dotenv_path = Path(__file__).with_name('.env')
+    try:
+        load_dotenv(dotenv_path=_dotenv_path, override=False)
+        groq = os.environ.get('GROQ_API_KEY', '')
+        masked = (f"{groq[:4]}...{groq[-4:]}" if groq and len(groq) >= 8 else "(missing or too short)")
+        print(f"Env loaded from: {_dotenv_path} | GROQ_API_KEY: {masked}")
+    except Exception as _e:
+        print(f"Warning: Could not load .env from {_dotenv_path}: {_e}")
     app = FastAPI(
         title="LegalSearch API",
         description="Legal Case Search Service using semantic similarity",
@@ -53,8 +71,6 @@ def create_app():
 
 def main():
     """Main function to run the FastAPI server."""
-    app = create_app()
-    
     # Get configuration from environment variables
     port = int(os.environ.get('PORT', 8000))
     host = os.environ.get('HOST', '127.0.0.1')

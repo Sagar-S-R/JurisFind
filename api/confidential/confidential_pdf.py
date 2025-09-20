@@ -7,8 +7,12 @@ import shutil
 from typing import Dict, Any, List
 from fastapi import UploadFile
 import fitz  # PyMuPDF
-from search_service import get_searcher
-from legal_agent import get_agent
+try:
+    from services.search_service import get_searcher
+    from agents.legal_agent import get_agent
+except ImportError:
+    from ..services.search_service import get_searcher  # type: ignore
+    from ..agents.legal_agent import get_agent  # type: ignore
 
 class ConfidentialPDFProcessor:
     def __init__(self):
