@@ -70,7 +70,7 @@ def generate_embeddings(pdf_dir_path=None, max_files=None):
     index.add(embeddings)
 
     # Save index and mapping
-    store_dir = os.path.join(os.path.dirname(__file__), "faiss_store")
+    store_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "faiss_store")
     os.makedirs(store_dir, exist_ok=True)
     
     faiss.write_index(index, os.path.join(store_dir, "legal_cases.index"))

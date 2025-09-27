@@ -1,6 +1,6 @@
 """
 Legal Chatbot Agent using LangChain and Groq
-Specialized for judicial and legal domain questions only
+Specialized for judicial and legal domain questions
 """
 import os
 from pathlib import Path
@@ -8,6 +8,7 @@ from typing import Dict, Any
 from langchain_core.prompts import ChatPromptTemplate
 from groq import Groq
 from dotenv import load_dotenv
+import re
 
 # Load environment variables explicitly from api/.env (alongside this file)
 _dotenv_path = Path(__file__).with_name(".env")
@@ -35,8 +36,88 @@ class LegalChatbotAgent:
         
         self.groq_client = Groq(api_key=self.groq_api_key)
         
+        # Load model from environment
+        self.model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        
         # Chat history for context
         self.chat_history = []
+        
+        # Legal domain filter template
+        self.domain_filter_template = ChatPromptTemplate.from_template("""
+        You are a domain filter for a legal AI assistant. Your task is to determine if a question is related to the judicial system, legal matters, or law.
+
+        Question: {question}
+
+        Respond with ONLY "LEGAL" if the question is about:
+        - Laws, statutes, regulations
+        - Court procedures, judicial processes
+        - Legal concepts, terminology
+        - Rights, obligations, legal remedies
+        - Legal cases, precedents
+        - Legal professions (judges, lawyers, etc.)
+        - Constitutional matters
+        - Legal documentation
+        - Criminal, civil, corporate, or any area of law
+
+        Respond with ONLY "NON-LEGAL" if the question is about:
+        - General knowledge not related to law
+        - Personal advice unrelated to legal matters
+        - Technology, science, entertainment (unless legally relevant)
+        - Casual conversation
+        - Non-legal professional advice
+
+        Response:
+        """)
+        
+        # Legal chatbot response template
+        self.legal_chat_template = ChatPromptTemplate.from_template("""
+        You are an expert legal AI assistant specializing in the judicial system and legal matters. You provide accurate, professional, and helpful information about law and legal processes.
+
+        Chat History:
+        {chat_history}
+
+        Current Question: {question}
+
+        Guidelines:
+        1. Provide accurate legal information and explanations
+        2. Use appropriate legal terminology but explain complex concepts
+        3. Mention when legal advice should be sought from a qualified attorney
+        4. Reference relevant laws, cases, or legal principles when applicable
+        5. Be professional and authoritative in your responses
+        6. If you're unsure about specific legal details, acknowledge limitations
+        7. Focus on educational and informational content about law
+
+        Important: This is for informational purposes only and does not constitute legal advice.
+
+        Response:
+        """)
+
+    def clean_ai_response(self, response: str) -> str:
+        """Clean AI response by removing unwanted formatting and artifacts"""
+        if not response:
+            return response
+            
+        # Remove common AI artifacts and formatting issues
+        cleaned = response.strip()
+        
+        # Remove markdown bold/italic artifacts that aren't meant for display
+        cleaned = re.sub(r'\*\*\s*\([^)]*content[^)]*\)\s*\*\*', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\*\*\s*\(content\)\s*\*\*', '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove system prompt leakage
+        cleaned = re.sub(r'^(System:|Assistant:|AI:|Response:)\s*', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Remove excessive whitespace and newlines
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        cleaned = re.sub(r' {2,}', ' ', cleaned)
+        
+        # Remove markdown formatting that's not meant for display
+        cleaned = re.sub(r'^\*\*.*?\*\*$', '', cleaned, flags=re.MULTILINE)  # Remove standalone bold lines
+        
+        # Clean up any remaining artifacts
+        cleaned = cleaned.strip()
+        
+        return cleaned
         
         # Legal domain filter template
         self.domain_filter_template = ChatPromptTemplate.from_template("""
@@ -96,7 +177,7 @@ class LegalChatbotAgent:
             
             # Call Groq API for domain filtering
             response = self.groq_client.chat.completions.create(
-                model="llama3-70b-8192",
+                model=self.model_name,
                 messages=[
                     {"role": "system", "content": "You are a domain classification assistant."},
                     {"role": "user", "content": prompt}
@@ -132,7 +213,7 @@ class LegalChatbotAgent:
             
             # Call Groq API
             response = self.groq_client.chat.completions.create(
-                model="llama3-70b-8192",
+                model=self.model_name,
                 messages=[
                     {"role": "system", "content": "You are an expert legal AI assistant."},
                     {"role": "user", "content": prompt}
@@ -141,7 +222,9 @@ class LegalChatbotAgent:
                 max_tokens=1024
             )
             
-            return response.choices[0].message.content
+            # Clean the AI response before returning
+            cleaned_response = self.clean_ai_response(response.choices[0].message.content)
+            return cleaned_response
             
         except Exception as e:
             raise Exception(f"Error getting legal response: {str(e)}")
@@ -208,7 +291,7 @@ class LegalChatbotAgent:
         """Get chatbot statistics"""
         return {
             "chat_history_length": len(self.chat_history),
-            "model_used": "llama3-70b-8192",
+                        "model_used": self.model_name,
             "domain_filtering": True,
             "specialization": "Legal and Judicial Systems"
         }

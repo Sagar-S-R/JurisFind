@@ -13,6 +13,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from groq import Groq
 import tempfile
 from dotenv import load_dotenv
+import re
 
 # Load environment variables
 load_dotenv()
@@ -26,6 +27,9 @@ class LegalDocumentAgent:
             raise ValueError("GROQ_API_KEY environment variable not set")
         
         self.groq_client = Groq(api_key=self.groq_api_key)
+        
+        # Load model from environment
+        self.model_name = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
         
         # Initialize embeddings
         self.embeddings = HuggingFaceEmbeddings(
@@ -80,6 +84,33 @@ class LegalDocumentAgent:
         Answer:
         """)
 
+    def clean_ai_response(self, response: str) -> str:
+        """Clean AI response by removing unwanted formatting and artifacts"""
+        if not response:
+            return response
+            
+        # Remove common AI artifacts and formatting issues
+        cleaned = response.strip()
+        
+        # Remove markdown bold/italic artifacts that aren't meant for display
+        cleaned = re.sub(r'\*\*\s*\([^)]*content[^)]*\)\s*\*\*', '', cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r'\*\*\s*\(content\)\s*\*\*', '', cleaned, flags=re.IGNORECASE)
+        
+        # Remove system prompt leakage
+        cleaned = re.sub(r'^(System:|Assistant:|AI:|Response:)\s*', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+        
+        # Remove excessive whitespace and newlines
+        cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
+        cleaned = re.sub(r' {2,}', ' ', cleaned)
+        
+        # Remove markdown formatting that's not meant for display
+        cleaned = re.sub(r'^\*\*.*?\*\*$', '', cleaned, flags=re.MULTILINE)  # Remove standalone bold lines
+        
+        # Clean up any remaining artifacts
+        cleaned = cleaned.strip()
+        
+        return cleaned
+
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """Extract text from PDF file"""
         try:
@@ -120,7 +151,7 @@ class LegalDocumentAgent:
             
             # Call Groq API
             response = self.groq_client.chat.completions.create(
-                model="llama3-70b-8192",  # Using Llama3 70B - reliable and supported
+                model=self.model_name,  # Using configurable model from environment
                 messages=[
                     {"role": "system", "content": "You are a legal expert AI assistant."},
                     {"role": "user", "content": prompt}
@@ -129,7 +160,9 @@ class LegalDocumentAgent:
                 max_tokens=2048
             )
             
-            return response.choices[0].message.content
+            # Clean the AI response before returning
+            cleaned_response = self.clean_ai_response(response.choices[0].message.content)
+            return cleaned_response
             
         except Exception as e:
             raise Exception(f"Error generating summary: {str(e)}")
@@ -153,7 +186,7 @@ class LegalDocumentAgent:
             
             # Call Groq API
             response = self.groq_client.chat.completions.create(
-                model="llama3-70b-8192",
+                model=self.model_name,
                 messages=[
                     {"role": "system", "content": "You are a legal expert AI assistant."},
                     {"role": "user", "content": prompt}
@@ -162,7 +195,9 @@ class LegalDocumentAgent:
                 max_tokens=1024
             )
             
-            return response.choices[0].message.content
+            # Clean the AI response before returning
+            cleaned_response = self.clean_ai_response(response.choices[0].message.content)
+            return cleaned_response
             
         except Exception as e:
             raise Exception(f"Error answering question: {str(e)}")

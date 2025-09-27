@@ -9,7 +9,7 @@ class LegalCaseSearcher:
         self.model = None
         self.index = None
         self.id2name = None
-        self.store_dir = os.path.join(os.path.dirname(__file__), "faiss_store")
+        self.store_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "faiss_store")
         self._load_index()
     
     def _load_index(self):
