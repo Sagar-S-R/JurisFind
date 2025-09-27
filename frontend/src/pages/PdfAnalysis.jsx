@@ -34,7 +34,6 @@ const PdfAnalysis = () => {
   const [chatHistory, setChatHistory] = useState([]);
   const [isAsking, setIsAsking] = useState(false);
   const [documentStats, setDocumentStats] = useState(null);
-  const [hasUserInteracted, setHasUserInteracted] = useState(false);
 
   // Get the previous page path, default to '/' if not available
   const previousPage = location.state?.from || '/';
@@ -46,16 +45,7 @@ const PdfAnalysis = () => {
     }
   }, [filename]);
 
-  useEffect(() => {
-    // Only scroll to bottom if user has interacted with chat (not on initial load)
-    if (hasUserInteracted) {
-      scrollToBottom();
-    }
-  }, [chatHistory, hasUserInteracted]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // Removed automatic scrolling behavior
 
   const analyzeDocument = async () => {
     try {
@@ -99,9 +89,6 @@ const PdfAnalysis = () => {
 
   const askQuestion = async () => {
     if (!question.trim() || isAsking) return;
-
-    // Mark that user has interacted with chat
-    setHasUserInteracted(true);
 
     const userMessage = {
       type: 'user',
@@ -263,15 +250,15 @@ const PdfAnalysis = () => {
             </div>
 
             <div className="flex items-center space-x-4">
-              {documentStats && (
+              {documentStats && documentStats.pages && documentStats.words && (
                 <div className="hidden md:flex items-center space-x-4 text-sm text-gray-600">
                   <div className="flex items-center space-x-1">
                     <BookOpen className="h-4 w-4 text-blue-500" />
-                    <span>{documentStats.pages || 'N/A'} pages</span>
+                    <span>{documentStats.pages} pages</span>
                   </div>
                   <div className="flex items-center space-x-1">
                     <BarChart3 className="h-4 w-4 text-green-500" />
-                    <span>{documentStats.words || 'N/A'} words</span>
+                    <span>{documentStats.words} words</span>
                   </div>
                 </div>
               )}

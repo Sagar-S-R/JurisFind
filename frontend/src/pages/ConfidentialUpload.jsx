@@ -464,15 +464,6 @@ const ConfidentialUpload = () => {
                     </div>
                     
                     <div className="flex items-center space-x-3">
-                      <a
-                        href={`http://127.0.0.1:8000/api/pdf/${encodeURIComponent(caseItem.filename || caseItem.name || '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors text-sm"
-                      >
-                        <Eye className="h-4 w-4" />
-                        <span>View</span>
-                      </a>
                       <button
                         onClick={() => navigate(`/analyze/${encodeURIComponent(caseItem.filename || caseItem.name || '')}`, {
                           state: { from: '/confidential-upload' }

@@ -11,7 +11,7 @@ import ConfidentialUpload from './pages/ConfidentialUpload';
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-violet-50">
         <Navigation />
         <main className="container mx-auto px-4 py-6 max-w-7xl">
           <Routes>

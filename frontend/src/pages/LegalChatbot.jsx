@@ -26,7 +26,6 @@ const LegalChatbot = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [chatStats, setChatStats] = useState(null);
-
   // Initial welcome message
   useEffect(() => {
     setMessages([
@@ -40,15 +39,6 @@ const LegalChatbot = () => {
     
     getChatStats();
   }, []);
-
-  // Auto scroll to bottom when new messages arrive
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
 
   const getChatStats = async () => {
     try {
@@ -164,18 +154,7 @@ const LegalChatbot = () => {
             </div>
 
             <div className="flex items-center space-x-4">
-              {chatStats && (
-                <div className="hidden md:flex items-center space-x-4 text-sm text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <MessageCircle className="h-4 w-4 text-blue-500" />
-                    <span>{chatStats.total_queries || 0} queries</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
-                    <span>{chatStats.legal_queries || 0} legal</span>
-                  </div>
-                </div>
-              )}
+              {/* Removed the query count display */}
               
               <button
                 onClick={clearChat}
@@ -275,18 +254,7 @@ const LegalChatbot = () => {
                     </p>
                   </div>
                   
-                  <div className="flex items-center space-x-3">
-                    <div className="text-xs text-gray-600">
-                      <span className="font-medium">{messages.length - 1}</span> messages
-                    </div>
-                    <button
-                      onClick={clearChat}
-                      className="flex items-center space-x-1 px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded-md transition-colors text-xs font-medium"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                      <span>Clear</span>
-                    </button>
-                  </div>
+                  {/* Removed the message count and second clear button */}
                 </div>
               </div>
 

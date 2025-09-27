@@ -25,7 +25,7 @@ def create_app():
     except Exception as _e:
         print(f"Warning: Could not load .env from {_dotenv_path}: {_e}")
     app = FastAPI(
-        title="LegalSearch API",
+        title="JurisFind API",
         description="Legal Case Search Service using semantic similarity",
         version="1.0.0",
         docs_url="/docs",
@@ -48,7 +48,7 @@ def create_app():
     @app.get("/")
     async def home():
         return {
-            'message': 'LegalSearch API - Legal Case Search Service',
+            'message': 'JurisFind API - Legal Case Search Service',
             'version': '1.0.0',
             'endpoints': {
                 'health_check': '/api/health',
@@ -77,7 +77,7 @@ def main():
     reload = os.environ.get('RELOAD', 'False').lower() == 'true'
     
     print("=" * 50)
-    print("🚀 Starting LegalSearch FastAPI Server")
+    print("🚀 Starting JurisFind FastAPI Server")
     print("=" * 50)
     print(f"📍 Server running on: http://{host}:{port}")
     print(f"🔍 API endpoints available at: http://{host}:{port}/api")
