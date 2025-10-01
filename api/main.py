@@ -35,7 +35,14 @@ def create_app():
     # Enable CORS for all routes
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # In production, specify allowed origins
+        allow_origins=[
+            "http://localhost:5173",  # Vite dev server
+            "http://localhost:3000",  # React dev server  
+            "https://jurisfind.vercel.app",  # Production frontend
+            "https://jurisfind.netlify.app",  # Alternative frontend
+            "http://your-vm-public-ip",  # Your VM IP
+            "*"  # Allow all for development (remove in production)
+        ],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

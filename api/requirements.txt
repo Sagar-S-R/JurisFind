@@ -3,6 +3,7 @@
 # Core FastAPI framework and ASGI server
 fastapi==0.115.12
 uvicorn[standard]==0.34.0
+gunicorn==23.0.0
 starlette==0.46.1
 pydantic==2.8.2
 pydantic-core==2.20.1
@@ -41,10 +42,10 @@ groq==0.15.0
 
 # Development and utilities
 python-dotenv==1.1.0
+pytest==8.3.4
 tqdm==4.66.5
 typing-extensions==4.11.0
 
-# Optional: For enhanced functionality
-# python-multipart  # If you plan to handle file uploads
-# python-jose[cryptography]  # If you need JWT authentication
-# passlib[bcrypt]  # If you need password hashing
+# Azure cloud services
+azure-storage-blob==12.19.0
+azure-identity==1.15.0

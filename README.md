@@ -257,71 +257,6 @@ The application uses optimized models for legal document analysis:
 - **Prompt Engineering**: Monitor AI responses and adjust templates as needed
 - **Token Limits**: Large documents are truncated to stay within model limits
 
-## ❓ FAQ
-
-### General Questions
-
-**Q: What types of legal documents can Legal Bolt analyze?**
-A: Legal Bolt can analyze various legal documents including:
-- Court cases and judicial opinions
-- Contracts and agreements
-- Legal briefs and memoranda
-- Statutes and regulations
-- Legal research papers
-- Any PDF document containing legal text
-
-**Q: How accurate is the AI analysis?**
-A: The AI analysis is highly accurate for:
-- Document summarization and key point extraction
-- Legal concept identification
-- Party and issue identification
-- However, always verify AI-generated content against original documents for critical legal work
-
-**Q: Can I use Legal Bolt for client work?**
-A: Legal Bolt is designed as a research and analysis tool. Always:
-- Review AI-generated content for accuracy
-- Cross-reference with original documents
-- Follow your jurisdiction's professional responsibility rules
-- Consider it a starting point for further research
-
-### Technical Questions
-
-**Q: How much does the Groq API cost?**
-A: Groq offers a generous free tier with:
-- Fast inference speeds
-- Reasonable usage limits for development and testing
-- Pay-as-you-go pricing for production use
-- Check [Groq Pricing](https://console.groq.com/pricing) for current rates
-
-**Q: Can I run Legal Bolt without an internet connection?**
-A: No, Legal Bolt requires internet connectivity for:
-- Groq AI inference services
-- HuggingFace model downloads
-- Real-time document analysis
-
-**Q: How many documents can I analyze simultaneously?**
-A: The system is designed to handle:
-- Multiple concurrent searches
-- One document analysis at a time (to ensure quality)
-- Automatic cleanup of temporary embeddings
-- Scalable architecture for growing document collections
-
-### Performance Questions
-
-**Q: How fast is document analysis?**
-A: Typical processing times:
-- Small documents (< 10 pages): 5-15 seconds
-- Medium documents (10-50 pages): 15-60 seconds
-- Large documents (50+ pages): 1-3 minutes
-- Search queries: < 1 second
-
-**Q: Can I customize the AI prompts?**
-A: Yes, you can modify:
-- Legal analysis templates in `legal_agent.py`
-- Prompt parameters (temperature, max_tokens)
-- Analysis focus areas
-- Q&A conversation styles
-
 ## 🔒 Security & Privacy
 
 ### Data Handling
@@ -438,27 +373,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - ⚠️ No warranty provided
 - ⚠️ No liability assumed
 
-## 🆘 Support & Community
-
-### Getting Help
-
-**Documentation:**
-- This README provides comprehensive guidance
-- API documentation at `http://localhost:8000/docs`
-- Code comments and docstrings
-- Example workflows and use cases
-
-**Community Support:**
-- GitHub Discussions for questions and ideas
-- GitHub Issues for bug reports and feature requests
-- Stack Overflow with `legal-bolt` tag
-- Legal tech community forums
-
-**Professional Support:**
-- For enterprise deployments
-- Custom integrations and features
-- Training and consultation services
-- Priority support and SLA
 
 ### Reporting Issues
 
@@ -495,7 +409,7 @@ systeminfo  # Windows
 
 <div align="center">
 
-**Legal Bolt** - Empowering Legal Professionals with AI
+**JurisFind** - Empowering Legal Professionals with AI
 
 
 [![GitHub stars](https://img.shields.io/github/stars/your-repo/legal-bolt?style=social)](https://github.com/your-repo/legal-bolt)

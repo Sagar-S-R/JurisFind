@@ -3,6 +3,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional
 import sys, os
+from azure.storage.blob import BlobServiceClient
 
 # Ensure api/ is on sys.path for namespace package imports
 _API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -209,24 +210,49 @@ async def search_cases_get(
 
 @router.get("/pdf/{filename}")
 async def get_pdf_file(filename: str):
-    """Serve PDF files directly."""
+    """Serve PDF files from Azure Blob Storage or local files."""
     try:
-        # Construct the PDF file path (api/pdfs)
-        pdf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "pdfs"))
+        # Try Azure Blob Storage first
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        
+        if connection_string:
+            container_name = os.getenv("AZURE_DATA_CONTAINER", "data")
+            
+            # Create blob service client
+            blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+            container_client = blob_service_client.get_container_client(container_name)
+            
+            # Check if blob exists
+            blob_client = container_client.get_blob_client(f"pdfs/{filename}")
+            if blob_client.exists():
+                # Download and serve from Azure
+                download_stream = blob_client.download_blob()
+                pdf_content = download_stream.readall()
+                
+                from fastapi.responses import StreamingResponse
+                import io
+                
+                return StreamingResponse(
+                    io.BytesIO(pdf_content),
+                    media_type="application/pdf",
+                    headers={"Content-Disposition": f"inline; filename={filename}"}
+                )
+        
+        # Fallback to local files
+        pdf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "pdfs"))
         pdf_path = os.path.join(pdf_dir, filename)
         
-        # Check if file exists
-        if not os.path.exists(pdf_path):
-            raise HTTPException(
-                status_code=404,
-                detail=f"PDF file '{filename}' not found"
+        if os.path.exists(pdf_path):
+            return FileResponse(
+                path=pdf_path,
+                media_type="application/pdf",
+                filename=filename
             )
         
-        # Serve the file
-        return FileResponse(
-            path=pdf_path,
-            media_type="application/pdf",
-            filename=filename
+        # File not found in either location
+        raise HTTPException(
+            status_code=404,
+            detail=f"PDF file '{filename}' not found"
         )
     
     except HTTPException:
@@ -235,9 +261,7 @@ async def get_pdf_file(filename: str):
         raise HTTPException(
             status_code=500,
             detail=f"Error serving PDF: {str(e)}"
-        )
-
-# Agent-based routes for document analysis
+        )# Agent-based routes for document analysis
 @router.post("/analyze-document", response_model=AnalysisResponse)
 async def analyze_document(filename: str):
     """Analyze a legal document using the LangChain agent."""

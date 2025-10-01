@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      # Azure Storage settings (uncomment and fill in for cloud deployment)
+      # - AZURE_STORAGE_CONNECTION_STRING=your_connection_string_here
+      # - AZURE_DATA_CONTAINER=data
+    volumes:
+      - .:/app
+      # Mount local data directories for development
+      - ./data/faiss_store:/app/data/faiss_store:ro
+      - ./data/pdfs:/app/data/pdfs:ro
+    restart: unless-stopped
