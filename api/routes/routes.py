@@ -375,6 +375,7 @@ async def generate_embeddings_from_azure(max_files: Optional[int] = None):
 @router.post("/analyze-document", response_model=AnalysisResponse)
 async def analyze_document(filename: str):
     """Analyze a legal document using the LangChain agent."""
+    import tempfile
     try:
         # Get Azure connection string
         connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
@@ -392,7 +393,6 @@ async def analyze_document(filename: str):
         pdf_content = azure_helper.download_blob("data", f"pdfs/{filename}")
         
         # Create temporary file for agent analysis
-        import tempfile
         with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
             temp_file.write(pdf_content)
             temp_path = temp_file.name
@@ -407,7 +407,6 @@ async def analyze_document(filename: str):
             return AnalysisResponse(**result)
         finally:
             # Clean up temporary file
-            import os
             if os.path.exists(temp_path):
                 os.unlink(temp_path)
         

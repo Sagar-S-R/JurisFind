@@ -65,8 +65,10 @@ const LegalChatbot = () => {
 
     try {
       const response = await axios.post(getApiUrl('/api/legal-chat'), {
-        query: newMessage
-      });      const botMessage = {
+        question: inputMessage
+      });
+      
+      const botMessage = {
         type: 'bot',
         content: response.data.response,
         timestamp: new Date(),
