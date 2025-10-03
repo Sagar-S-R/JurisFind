@@ -68,29 +68,6 @@ class LegalChatbotAgent:
 
         Response:
         """)
-        
-        # Legal chatbot response template
-        self.legal_chat_template = ChatPromptTemplate.from_template("""
-        You are an expert legal AI assistant specializing in the judicial system and legal matters. You provide accurate, professional, and helpful information about law and legal processes.
-
-        Chat History:
-        {chat_history}
-
-        Current Question: {question}
-
-        Guidelines:
-        1. Provide accurate legal information and explanations
-        2. Use appropriate legal terminology but explain complex concepts
-        3. Mention when legal advice should be sought from a qualified attorney
-        4. Reference relevant laws, cases, or legal principles when applicable
-        5. Be professional and authoritative in your responses
-        6. If you're unsure about specific legal details, acknowledge limitations
-        7. Focus on educational and informational content about law
-
-        Important: This is for informational purposes only and does not constitute legal advice.
-
-        Response:
-        """)
 
     def clean_ai_response(self, response: str) -> str:
         """Clean AI response by removing unwanted formatting and artifacts"""
@@ -227,7 +204,9 @@ class LegalChatbotAgent:
             return cleaned_response
             
         except Exception as e:
-            raise Exception(f"Error getting legal response: {str(e)}")
+            error_msg = str(e)
+            print(f"Error getting legal response: {error_msg}")
+            raise Exception(f"Error getting legal response: {error_msg}")
 
     def chat(self, question: str) -> Dict[str, Any]:
         """Main chat function with legal domain filtering"""
@@ -275,11 +254,13 @@ class LegalChatbotAgent:
             }
             
         except Exception as e:
+            error_msg = str(e)
+            print(f"Legal chatbot error: {error_msg}")
             return {
                 "success": False,
-                "error": str(e),
+                "error": f"I apologize, but I'm currently experiencing technical difficulties: {error_msg}. Please try again in a moment.",
                 "response": None,
-                "is_legal": is_legal if 'is_legal' in locals() else False
+                "is_legal": False
             }
 
     def clear_history(self):

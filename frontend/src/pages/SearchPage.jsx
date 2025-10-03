@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, FileText, Clock, Users, Brain, Eye } from 'lucide-react';
+import { getApiUrl, getPdfUrl } from '../config/api';
 
 function SearchPage() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ function SearchPage() {
 
     setLoading(true);
     try {
-      const response = await fetch('http://127.0.0.1:8000/api/search', {
+      const response = await fetch(getApiUrl('/api/search'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -175,7 +176,7 @@ function SearchPage() {
                           hover:shadow-lg transform hover:scale-105 flex items-center space-x-2"
                         onClick={() => {
                           if (result.filename) {
-                            window.open(`http://127.0.0.1:8000/api/pdf/${encodeURIComponent(result.filename)}`, '_blank');
+                            window.open(getPdfUrl(result.filename), '_blank');
                           }
                         }}
                       >

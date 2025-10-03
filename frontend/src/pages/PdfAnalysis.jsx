@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { getApiUrl, getPdfUrl } from '../config/api';
 import { 
   ArrowLeft, 
   FileText, 
@@ -52,7 +53,7 @@ const PdfAnalysis = () => {
       setLoading(true);
       setError(null);
       
-      const response = await axios.post(`http://127.0.0.1:8000/api/analyze-document?filename=${filename}`);
+      const response = await axios.post(getApiUrl(`/api/analyze-document?filename=${filename}`));
       
       if (response.data.success) {
         setAnalysis(response.data);
@@ -78,7 +79,7 @@ const PdfAnalysis = () => {
 
   const getDocumentStats = async () => {
     try {
-      const response = await axios.get(`http://127.0.0.1:8000/api/document-stats/${filename}`);
+      const response = await axios.get(getApiUrl(`/api/document-stats/${filename}`));
       if (response.data.success) {
         setDocumentStats(response.data.stats);
       }
@@ -102,12 +103,10 @@ const PdfAnalysis = () => {
     setIsAsking(true);
 
     try {
-      const response = await axios.post(`http://127.0.0.1:8000/api/ask-question`, {
-        filename: filename,
-        question: currentQuestion
-      });
-
-      if (response.data.success) {
+      const response = await axios.post(getApiUrl('/api/ask-question'), {
+        question: newQuestion,
+        filename: filename
+      });      if (response.data.success) {
         const botMessage = {
           type: 'bot',
           content: response.data.answer,
@@ -265,7 +264,7 @@ const PdfAnalysis = () => {
               
               <div className="flex items-center space-x-2">
                 <a
-                  href={`http://127.0.0.1:8000/api/pdf/${encodeURIComponent(filename)}`}
+                  href={getPdfUrl(filename)}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md"

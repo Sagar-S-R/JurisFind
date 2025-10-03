@@ -369,22 +369,47 @@ async def generate_embeddings_from_azure(max_files: Optional[int] = None):
         raise HTTPException(
             status_code=500,
             detail=f"Error generating embeddings: {str(e)}"
-        )# Agent-based routes for document analysis
+        )
+
+# Agent-based routes for document analysis
 @router.post("/analyze-document", response_model=AnalysisResponse)
 async def analyze_document(filename: str):
     """Analyze a legal document using the LangChain agent."""
     try:
-        pdf_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "pdfs", filename))
-        if not os.path.exists(pdf_path):
-            raise HTTPException(status_code=404, detail="PDF not found")
+        # Get Azure connection string
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        if not connection_string:
+            raise HTTPException(status_code=500, detail="Azure storage not configured")
         
-        agent = get_agent()
-        result = agent.analyze_document(pdf_path, filename)
+        # Get Azure blob helper
+        azure_helper = get_azure_blob_helper(connection_string)
         
-        if not result["success"]:
-            raise HTTPException(status_code=500, detail=result["error"])
+        # Check if file exists in Azure
+        if not azure_helper.blob_exists("data", f"pdfs/{filename}"):
+            raise HTTPException(status_code=404, detail="PDF not found in Azure storage")
         
-        return AnalysisResponse(**result)
+        # Download PDF content to memory for analysis
+        pdf_content = azure_helper.download_blob("data", f"pdfs/{filename}")
+        
+        # Create temporary file for agent analysis
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+            temp_file.write(pdf_content)
+            temp_path = temp_file.name
+        
+        try:
+            agent = get_agent()
+            result = agent.analyze_document(temp_path, filename)
+            
+            if not result["success"]:
+                raise HTTPException(status_code=500, detail=result["error"])
+            
+            return AnalysisResponse(**result)
+        finally:
+            # Clean up temporary file
+            import os
+            if os.path.exists(temp_path):
+                os.unlink(temp_path)
         
     except HTTPException:
         raise

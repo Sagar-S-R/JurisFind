@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getApiUrl } from '../config/api';
 import { 
   Send, 
   MessageCircle, 
@@ -42,7 +43,7 @@ const LegalChatbot = () => {
 
   const getChatStats = async () => {
     try {
-      const response = await axios.get('http://127.0.0.1:8000/api/legal-chat/stats');
+      const response = await axios.get(getApiUrl('/api/legal-chat/stats'));
       setChatStats(response.data);
     } catch (error) {
       console.error('Failed to get chat stats:', error);
@@ -63,11 +64,9 @@ const LegalChatbot = () => {
     setIsLoading(true);
 
     try {
-      const response = await axios.post('http://127.0.0.1:8000/api/legal-chat', {
-        question: inputMessage
-      });
-
-      const botMessage = {
+      const response = await axios.post(getApiUrl('/api/legal-chat'), {
+        query: newMessage
+      });      const botMessage = {
         type: 'bot',
         content: response.data.response,
         timestamp: new Date(),

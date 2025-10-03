@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { getApiUrl, getPdfUrl } from '../config/api';
 import { 
   Upload, 
   FileText, 
@@ -61,7 +62,7 @@ const ConfidentialUpload = () => {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await axios.post('http://127.0.0.1:8000/api/upload-confidential-pdf', formData, {
+      const response = await axios.post(getApiUrl('/api/upload-confidential-pdf'), formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -105,7 +106,7 @@ const ConfidentialUpload = () => {
       console.log('Retrieving similar cases for:', uploadedFile.name);
       
       // Use POST request with query parameters as expected by the backend
-      const response = await axios.post(`http://127.0.0.1:8000/api/retrieve-similar-cases?filename=${encodeURIComponent(uploadedFile.name)}&top_k=5`);
+      const response = await axios.post(getApiUrl(`/api/retrieve-similar-cases?filename=${encodeURIComponent(uploadedFile.name)}&top_k=5`));
       
       console.log('Retrieve response:', response.data);
 
@@ -136,7 +137,7 @@ const ConfidentialUpload = () => {
       console.log('Analyzing document:', uploadedFile.name);
       
       // Use POST request with query parameter as expected by the backend
-      const response = await axios.post(`http://127.0.0.1:8000/api/analyze-confidential-pdf?filename=${encodeURIComponent(uploadedFile.name)}`);
+      const response = await axios.post(getApiUrl(`/api/analyze-confidential-pdf?filename=${encodeURIComponent(uploadedFile.name)}`));
       
       console.log('Analysis response:', response.data);
 
@@ -162,7 +163,7 @@ const ConfidentialUpload = () => {
 
     try {
       setIsAsking(true);
-      const response = await axios.post('http://127.0.0.1:8000/api/ask-question-confidential', {
+      const response = await axios.post(getApiUrl('/api/ask-question-confidential'), {
         filename: uploadedFile.name,
         question: question.trim()
       });
@@ -474,7 +475,7 @@ const ConfidentialUpload = () => {
                         <span>Analyze</span>
                       </button>
                       <a
-                        href={`http://127.0.0.1:8000/api/pdf/${encodeURIComponent(caseItem.filename || caseItem.name || '')}`}
+                        href={getPdfUrl(caseItem.filename || caseItem.name || '')}
                         download
                         className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
                       >

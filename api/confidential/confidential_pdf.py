@@ -147,7 +147,9 @@ class ConfidentialPDFProcessor:
         """Analyze uploaded document using the legal agent"""
         try:
             agent = get_agent()
-            result = agent.analyze_document(file_path, f"confidential_{filename}")
+            # Use the same key format for both analysis and question answering
+            confidential_filename = f"confidential_{filename}"
+            result = agent.analyze_document(file_path, confidential_filename)
             
             return result
             
