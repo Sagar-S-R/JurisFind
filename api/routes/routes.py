@@ -1,9 +1,9 @@
 from fastapi import APIRouter, HTTPException, Query, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Optional
 import sys, os
-from azure.storage.blob import BlobServiceClient
+import io
 
 # Ensure api/ is on sys.path for namespace package imports
 _API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -14,7 +14,7 @@ from services.search_service import get_searcher
 from agents.legal_agent import get_agent
 from agents.legal_chatbot import get_legal_chatbot
 from confidential.confidential_pdf import get_pdf_processor
-import os
+from helpers.azure_blob_helper import get_azure_blob_helper
 
 # Create router for API routes
 router = APIRouter()
@@ -216,27 +216,20 @@ async def get_pdf_file(filename: str):
         connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
         
         if connection_string:
-            container_name = os.getenv("AZURE_DATA_CONTAINER", "data")
+            azure_helper = get_azure_blob_helper(connection_string)
             
-            # Create blob service client
-            blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-            container_client = blob_service_client.get_container_client(container_name)
-            
-            # Check if blob exists
-            blob_client = container_client.get_blob_client(f"pdfs/{filename}")
-            if blob_client.exists():
-                # Download and serve from Azure
-                download_stream = blob_client.download_blob()
-                pdf_content = download_stream.readall()
+            # Check if PDF exists in Azure
+            pdf_blob_name = f"pdfs/{filename}"
+            if azure_helper.blob_exists(pdf_blob_name):
+                # Download PDF data from Azure
+                pdf_data = azure_helper.download_file_data(pdf_blob_name)
                 
-                from fastapi.responses import StreamingResponse
-                import io
-                
-                return StreamingResponse(
-                    io.BytesIO(pdf_content),
-                    media_type="application/pdf",
-                    headers={"Content-Disposition": f"inline; filename={filename}"}
-                )
+                if pdf_data:
+                    return StreamingResponse(
+                        io.BytesIO(pdf_data),
+                        media_type="application/pdf",
+                        headers={"Content-Disposition": f"inline; filename={filename}"}
+                    )
         
         # Fallback to local files
         pdf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "pdfs"))
@@ -261,6 +254,121 @@ async def get_pdf_file(filename: str):
         raise HTTPException(
             status_code=500,
             detail=f"Error serving PDF: {str(e)}"
+        )
+
+@router.get("/list-pdfs")
+async def list_pdf_files():
+    """List all PDF files available in Azure Blob Storage or local storage."""
+    try:
+        # Try Azure Blob Storage first
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        
+        if connection_string:
+            azure_helper = get_azure_blob_helper(connection_string)
+            pdf_files = azure_helper.list_pdf_files()
+            
+            return {
+                "success": True,
+                "source": "azure",
+                "total_files": len(pdf_files),
+                "files": pdf_files
+            }
+        
+        # Fallback to local files
+        pdf_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data", "pdfs"))
+        
+        if os.path.exists(pdf_dir):
+            pdf_files = [f for f in os.listdir(pdf_dir) if f.lower().endswith('.pdf')]
+            
+            return {
+                "success": True,
+                "source": "local",
+                "total_files": len(pdf_files),
+                "files": pdf_files
+            }
+        
+        return {
+            "success": False,
+            "error": "No PDF files found in either Azure or local storage"
+        }
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error listing PDF files: {str(e)}"
+        )
+
+@router.post("/upload-pdf-to-azure")
+async def upload_pdf_to_azure(file: UploadFile = File(...)):
+    """Upload a PDF file to Azure Blob Storage"""
+    try:
+        if not file.filename.lower().endswith('.pdf'):
+            raise HTTPException(status_code=400, detail="Only PDF files are allowed")
+        
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        if not connection_string:
+            raise HTTPException(status_code=500, detail="Azure Storage not configured")
+        
+        azure_helper = get_azure_blob_helper(connection_string)
+        
+        # Read file data
+        file_data = await file.read()
+        
+        # Upload to Azure
+        blob_name = f"pdfs/{file.filename}"
+        success = azure_helper.upload_file_data(file_data, blob_name)
+        
+        if success:
+            return {
+                "success": True,
+                "filename": file.filename,
+                "blob_name": blob_name,
+                "size": len(file_data),
+                "message": "PDF uploaded to Azure Blob Storage successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to upload PDF to Azure")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error uploading PDF: {str(e)}"
+        )
+
+@router.post("/generate-embeddings-from-azure")
+async def generate_embeddings_from_azure(max_files: Optional[int] = None):
+    """Generate FAISS embeddings from PDFs in Azure Blob Storage"""
+    try:
+        connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        if not connection_string:
+            raise HTTPException(status_code=500, detail="Azure Storage not configured")
+        
+        from helpers.azure_blob_helper import generate_and_upload_faiss_index
+        
+        # Generate embeddings from Azure PDFs
+        result = generate_and_upload_faiss_index(
+            connection_string=connection_string,
+            max_files=max_files
+        )
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "documents_processed": result["documents_processed"],
+                "index_dimension": result["index_dimension"],
+                "message": result["message"]
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result["error"])
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating embeddings: {str(e)}"
         )# Agent-based routes for document analysis
 @router.post("/analyze-document", response_model=AnalysisResponse)
 async def analyze_document(filename: str):

@@ -3,8 +3,15 @@ import json
 import numpy as np
 import faiss
 from sentence_transformers import SentenceTransformer
-from azure.storage.blob import BlobServiceClient
 import tempfile
+import sys
+
+# Add helpers to path
+_API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _API_DIR not in sys.path:
+    sys.path.insert(0, _API_DIR)
+
+from helpers.azure_blob_helper import get_azure_blob_helper
 
 class LegalCaseSearcher:
     def __init__(self):
@@ -32,31 +39,24 @@ class LegalCaseSearcher:
             raise
     
     def _load_from_azure(self, connection_string):
-        """Load index files from Azure Blob Storage."""
-        container_name = os.getenv("AZURE_DATA_CONTAINER", "data")
-        
-        # Create blob service client
-        blob_service_client = BlobServiceClient.from_connection_string(connection_string)
-        container_client = blob_service_client.get_container_client(container_name)
-        
-        # Download FAISS index
-        index_path = os.path.join(self.temp_dir, "legal_cases.index")
-        print("📥 Downloading FAISS index from Azure Blob Storage...")
-        with open(index_path, "wb") as f:
-            blob_client = container_client.get_blob_client("faiss_store/legal_cases.index")
-            download_stream = blob_client.download_blob()
-            f.write(download_stream.readall())
-        
-        # Download ID to name mapping
-        id2name_path = os.path.join(self.temp_dir, "id2name.json")
-        print("📥 Downloading ID mapping from Azure Blob Storage...")
-        with open(id2name_path, "wb") as f:
-            blob_client = container_client.get_blob_client("faiss_store/id2name.json")
-            download_stream = blob_client.download_blob()
-            f.write(download_stream.readall())
-        
-        self._load_model_and_index(index_path, id2name_path)
-        print(f"✅ Loaded FAISS index with {len(self.id2name)} documents from Azure Blob Storage.")
+        """Load index files from Azure Blob Storage using helper."""
+        try:
+            azure_helper = get_azure_blob_helper(connection_string)
+            
+            # Download FAISS index files
+            print("📥 Downloading FAISS index from Azure Blob Storage...")
+            faiss_files = azure_helper.download_faiss_index(self.temp_dir)
+            
+            if not faiss_files:
+                raise Exception("Failed to download FAISS index from Azure Blob Storage")
+            
+            # Load the downloaded files
+            self._load_model_and_index(faiss_files["index_path"], faiss_files["id2name_path"])
+            print(f"✅ Loaded FAISS index with {len(self.id2name)} documents from Azure Blob Storage.")
+            
+        except Exception as e:
+            print(f"❌ Error loading from Azure: {e}")
+            raise
     
     def _load_from_local(self):
         """Load index files from local directories."""

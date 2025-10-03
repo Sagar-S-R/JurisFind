@@ -4,15 +4,24 @@ Confidential PDF Upload and Processing Service
 import os
 import tempfile
 import shutil
+import sys
 from typing import Dict, Any, List
 from fastapi import UploadFile
 import fitz  # PyMuPDF
+
+# Add helpers to path
+_API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _API_DIR not in sys.path:
+    sys.path.insert(0, _API_DIR)
+
 try:
     from services.search_service import get_searcher
     from agents.legal_agent import get_agent
+    from helpers.azure_blob_helper import get_azure_blob_helper
 except ImportError:
     from ..services.search_service import get_searcher  # type: ignore
     from ..agents.legal_agent import get_agent  # type: ignore
+    from ..helpers.azure_blob_helper import get_azure_blob_helper  # type: ignore
 
 class ConfidentialPDFProcessor:
     def __init__(self):
@@ -67,6 +76,72 @@ class ConfidentialPDFProcessor:
             
         except Exception as e:
             raise Exception(f"Error retrieving similar cases: {str(e)}")
+
+    def upload_to_azure(self, upload_file: UploadFile, azure_path: str = None) -> Dict[str, Any]:
+        """Upload file directly to Azure Blob Storage"""
+        try:
+            connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+            
+            if not connection_string:
+                return {
+                    "success": False,
+                    "error": "Azure Storage not configured",
+                    "message": "AZURE_STORAGE_CONNECTION_STRING not set"
+                }
+            
+            azure_helper = get_azure_blob_helper(connection_string)
+            
+            # Use provided path or default to confidential directory
+            blob_name = azure_path or f"confidential/{upload_file.filename}"
+            
+            # Read file data
+            file_data = upload_file.file.read()
+            upload_file.file.seek(0)  # Reset file pointer
+            
+            # Upload to Azure
+            success = azure_helper.upload_file_data(file_data, blob_name)
+            
+            if success:
+                return {
+                    "success": True,
+                    "blob_name": blob_name,
+                    "filename": upload_file.filename,
+                    "size": len(file_data),
+                    "message": "File uploaded to Azure Blob Storage successfully"
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "Upload failed",
+                    "message": "Failed to upload file to Azure Blob Storage"
+                }
+                
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Error uploading to Azure Blob Storage"
+            }
+
+    def save_uploaded_file(self, upload_file: UploadFile) -> str:
+        """Save uploaded PDF to temporary directory"""
+        try:
+            # Create unique filename
+            temp_filename = f"confidential_{upload_file.filename}"
+            temp_path = os.path.join(self.temp_dir, temp_filename)
+            
+            # Save uploaded file
+            with open(temp_path, "wb") as buffer:
+                content = upload_file.file.read()
+                buffer.write(content)
+            
+            # Reset file pointer for potential future reads
+            upload_file.file.seek(0)
+            
+            return temp_path
+            
+        except Exception as e:
+            raise Exception(f"Error saving uploaded file: {str(e)}")
     
     def analyze_uploaded_document(self, file_path: str, filename: str) -> Dict[str, Any]:
         """Analyze uploaded document using the legal agent"""

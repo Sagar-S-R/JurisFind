@@ -1,13 +1,14 @@
-# Legal Bolt - Agentic AI Legal Document Analysis
+# JurisFind - AI-Powered Legal Document Analysis
 
 <div align="center">
 
-![Legal Bolt Logo](https://img.shields.io/badge/Legal%20Bolt-AI%20Powered-blue?style=for-the-badge&logo=law)
+![JurisFind Logo](https://img.shields.io/badge/JurisFind-AI%20Legal%20Search-blue?style=for-the-badge&logo=law)
 
-**A comprehensive full-stack agentic AI application for legal document analysis using advanced AI agents, LangChain, and Groq**
+**A comprehensive full-stack AI application for legal document analysis with Azure Blob Storage integration**
 
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=white)](https://reactjs.org/)
+[![Azure](https://img.shields.io/badge/Azure-0078D4?style=flat&logo=microsoft-azure&logoColor=white)](https://azure.microsoft.com/)
 [![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white)](https://langchain.com/)
 [![Groq](https://img.shields.io/badge/Groq-AI%20Inference-00D4AA?style=flat&logo=groq&logoColor=white)](https://groq.com/)
 
@@ -16,9 +17,11 @@
 ## 📋 Table of Contents
 
 - [Overview](#overview)
-- [Key Features](#key-features)
+- [Key Features](#key-features) 
+- [Azure Integration](#azure-integration)
 - [Architecture](docs/architecture.md)
-- [Quick Start](docs/installation.md)
+- [Quick Start](#quick-start)
+- [Azure Setup](docs/azure_integration.md)
 - [API Documentation](docs/api_reference.md)
 - [Ingestion Pipeline](docs/ingestion_pipeline.md)
 - [Query Pipeline](docs/query_pipeline.md)
@@ -33,15 +36,16 @@
 
 ## 🎯 Overview
 
-**Legal Bolt** is a cutting-edge agentic AI application designed specifically for legal professionals and researchers. It combines the power of modern AI agents with semantic search capabilities to revolutionize how legal documents are analyzed, summarized, and queried.
+**JurisFind** is a state-of-the-art AI application designed for legal document analysis and search. Built with modern cloud-native architecture, it leverages Azure Blob Storage for scalable document management and advanced AI for semantic understanding of legal content.
 
-### What Makes Legal Bolt Special?
+### What Makes JurisFind Special?
 
-- **🤖 Agentic AI Architecture**: Unlike traditional chatbots, Legal Bolt uses intelligent AI agents that can reason, plan, and execute complex legal document analysis tasks
-- **🧠 Context-Aware Processing**: Each document analysis creates temporary embeddings that provide deep contextual understanding
-- **⚡ Real-time Analysis**: Powered by Groq's high-speed inference engine for instant document processing
-- **🔍 Semantic Search**: Advanced FAISS-powered similarity search that understands legal concepts, not just keywords
-- **📚 Comprehensive Coverage**: Handles everything from case law to contracts, briefs, and legal memoranda
+- **☁️ Cloud-Native Architecture**: Full Azure Blob Storage integration for unlimited document storage
+- **� AI-Powered Analysis**: Intelligent document processing using LangChain and Groq AI
+- **⚡ Lightning-Fast Search**: FAISS-powered semantic search that understands legal concepts
+- **� Modern UI**: Clean, responsive React interface for seamless user experience
+- **🔒 Secure & Scalable**: Enterprise-ready with proper authentication and cloud security
+- **🛠️ Developer-Friendly**: Comprehensive APIs and management tools for easy integration
 
 ### Target Users
 
@@ -49,6 +53,45 @@
 - **Law Students**: Academic researchers and students studying legal precedents and case law
 - **Legal Tech Teams**: Developers building legal technology solutions
 - **Compliance Teams**: Organizations needing to analyze legal documents for compliance purposes
+
+## ☁️ Azure Integration
+
+**Enterprise-Grade Cloud Storage**
+
+JurisFind features comprehensive Azure Blob Storage integration for scalable, secure document management:
+
+- **📁 Cloud Document Storage**: Store thousands of legal documents in Azure Blob Storage
+- **🔄 Automatic Sync**: Seamless synchronization between local development and cloud production
+- **⚡ Fast Indexing**: Generate FAISS embeddings directly from Azure-stored PDFs
+- **🌐 Global Access**: Access documents from anywhere with Azure's global infrastructure
+- **🔒 Enterprise Security**: Azure's enterprise-grade security and compliance features
+
+### Azure Features
+
+- **Scalable Storage**: Handle millions of documents without local storage constraints
+- **Cost-Effective**: Pay only for storage used with Azure's flexible pricing tiers
+- **Backup & Recovery**: Built-in redundancy and disaster recovery capabilities
+- **API Integration**: RESTful APIs for document upload, download, and management
+- **Hybrid Deployment**: Works with both local files (development) and Azure (production)
+
+### Quick Azure Setup
+
+```bash
+# 1. Run the Azure setup script
+cd api
+python setup_azure.py
+
+# 2. Upload your PDFs to Azure
+python helpers/azure_data_manager.py upload-pdfs --pdf-dir ./data/pdfs
+
+# 3. Generate FAISS index from Azure PDFs
+python helpers/azure_data_manager.py generate-index
+
+# 4. Test the integration
+python tests/test_azure_integration.py
+```
+
+See [Azure Integration Guide](docs/azure_integration.md) for complete setup instructions.
 
 ## 🚀 Key Features
 
@@ -139,11 +182,79 @@ Complete API reference and endpoints. See [api_reference.md](docs/api_reference.
 - **HuggingFace Embeddings**: Text embedding generation
 - **PyMuPDF**: Advanced PDF text extraction
 
+### Cloud & Storage
+- **Azure Blob Storage**: Enterprise cloud document storage
+- **Azure SDK**: Python SDK for Azure integration
+- **Azure Identity**: Authentication and access management
+
 ### AI Models & Services
 - **Embeddings**: `sentence-transformers/all-mpnet-base-v2`
 - **Language Model**: `llama3-70b-8192` via Groq API
 - **Vector Store**: FAISS for similarity search
 - **Text Splitting**: Recursive character text splitter for chunking
+
+## 🚀 Quick Start
+
+### Option 1: Azure Cloud Setup (Recommended for Production)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-username/JurisFind.git
+cd JurisFind
+
+# 2. Setup backend with Azure
+cd api
+pip install -r requirements.txt
+python setup_azure.py  # Interactive Azure setup
+
+# 3. Upload PDFs and generate index
+python helpers/azure_data_manager.py upload-pdfs --pdf-dir ./data/pdfs
+python helpers/azure_data_manager.py generate-index
+
+# 4. Start backend
+python main.py
+
+# 5. Setup frontend (new terminal)
+cd ../frontend
+npm install
+npm run dev
+```
+
+### Option 2: Local Development Setup
+
+```bash
+# 1. Clone repository
+git clone https://github.com/your-username/JurisFind.git
+cd JurisFind
+
+# 2. Setup backend
+cd api
+pip install -r requirements.txt
+python helpers/generate_embeddings.py  # Generate local FAISS index
+python main.py
+
+# 3. Setup frontend (new terminal)
+cd ../frontend
+npm install
+npm run dev
+```
+
+### Environment Configuration
+
+Create `api/.env`:
+```env
+# Azure Blob Storage (for cloud setup)
+AZURE_STORAGE_CONNECTION_STRING="your_azure_connection_string"
+AZURE_DATA_CONTAINER="data"
+
+# AI Configuration
+GROQ_API_KEY="your_groq_api_key"
+GROQ_MODEL="llama3-70b-8192"
+
+# API Configuration
+API_HOST="localhost"
+API_PORT="8000"
+```
 
 ## File Structure
 

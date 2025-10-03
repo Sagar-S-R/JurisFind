@@ -14,6 +14,14 @@ from groq import Groq
 import tempfile
 from dotenv import load_dotenv
 import re
+import sys
+
+# Add helpers to path
+_API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _API_DIR not in sys.path:
+    sys.path.insert(0, _API_DIR)
+
+from helpers.azure_blob_helper import get_azure_blob_helper
 
 # Load environment variables
 load_dotenv()
@@ -142,6 +150,93 @@ class LegalDocumentAgent:
             
         except Exception as e:
             raise Exception(f"Error creating embeddings: {str(e)}")
+
+    def analyze_document_from_azure(self, pdf_filename: str, display_name: str = None) -> Dict[str, Any]:
+        """Analyze a document from Azure Blob Storage"""
+        try:
+            connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+            
+            if not connection_string:
+                raise ValueError("AZURE_STORAGE_CONNECTION_STRING not set")
+            
+            azure_helper = get_azure_blob_helper(connection_string)
+            
+            # Download PDF to temporary file
+            temp_pdf_path = azure_helper.download_pdf_to_temp_file(pdf_filename)
+            
+            if not temp_pdf_path:
+                raise ValueError(f"Failed to download PDF: {pdf_filename}")
+            
+            try:
+                # Extract text
+                text = self.extract_text_from_pdf(temp_pdf_path)
+                
+                if not text.strip():
+                    raise ValueError("No text could be extracted from the PDF")
+                
+                # Use display name if provided, otherwise use filename
+                document_key = display_name or pdf_filename
+                
+                # Create embeddings
+                self.create_temp_embeddings(document_key, text)
+                
+                # Generate summary
+                summary = self.generate_summary(text)
+                
+                return {
+                    "success": True,
+                    "filename": pdf_filename,
+                    "display_name": document_key,
+                    "summary": summary,
+                    "text_length": len(text),
+                    "chunks_created": len(self.text_splitter.split_text(text)),
+                    "source": "azure_blob_storage"
+                }
+                
+            finally:
+                # Clean up temporary file
+                try:
+                    os.unlink(temp_pdf_path)
+                except:
+                    pass
+                    
+        except Exception as e:
+            return {
+                "success": False,
+                "filename": pdf_filename,
+                "error": str(e),
+                "message": "Document analysis failed"
+            }
+
+    def extract_text_from_azure_pdf(self, pdf_filename: str) -> str:
+        """Extract text from a PDF stored in Azure Blob Storage"""
+        try:
+            connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+            
+            if not connection_string:
+                raise ValueError("AZURE_STORAGE_CONNECTION_STRING not set")
+            
+            azure_helper = get_azure_blob_helper(connection_string)
+            
+            # Download PDF to temporary file
+            temp_pdf_path = azure_helper.download_pdf_to_temp_file(pdf_filename)
+            
+            if not temp_pdf_path:
+                raise ValueError(f"Failed to download PDF: {pdf_filename}")
+            
+            try:
+                # Extract text using existing method
+                return self.extract_text_from_pdf(temp_pdf_path)
+                
+            finally:
+                # Clean up temporary file
+                try:
+                    os.unlink(temp_pdf_path)
+                except:
+                    pass
+                    
+        except Exception as e:
+            raise Exception(f"Error extracting text from Azure PDF {pdf_filename}: {str(e)}")
 
     def generate_summary(self, text: str) -> str:
         """Generate comprehensive summary of the legal document"""

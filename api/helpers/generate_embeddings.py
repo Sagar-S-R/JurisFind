@@ -1,10 +1,18 @@
 import fitz 
 from tqdm import tqdm
 import os
+import sys
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 import json
+
+# Add helpers to path
+_API_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if _API_DIR not in sys.path:
+    sys.path.insert(0, _API_DIR)
+
+from azure_blob_helper import get_azure_blob_helper, generate_and_upload_faiss_index
 
 def extract_text_from_pdf(file_path):
     """Extract text from a PDF file."""
@@ -16,8 +24,28 @@ def extract_text_from_pdf(file_path):
         print(f"Error processing {file_path}: {e}")
         return ""
 
-def generate_embeddings(pdf_dir_path=None, max_files=None):
+def generate_embeddings(pdf_dir_path=None, max_files=None, use_azure=False):
     """Generate embeddings for PDF files and save to FAISS index."""
+    
+    # Check if we should use Azure
+    connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+    if use_azure and connection_string:
+        print("🔄 Using Azure Blob Storage for embedding generation...")
+        result = generate_and_upload_faiss_index(
+            local_pdf_dir=pdf_dir_path, 
+            connection_string=connection_string, 
+            max_files=max_files
+        )
+        
+        if result["success"]:
+            print(f"✅ Azure embedding generation complete: {result['documents_processed']} documents processed")
+        else:
+            print(f"❌ Azure embedding generation failed: {result['error']}")
+        
+        return result
+    
+    # Use local file processing (existing logic)
+    print("🔄 Using local file system for embedding generation...")
     
     # Set default PDF directory if not provided
     if pdf_dir_path is None:
@@ -51,7 +79,7 @@ def generate_embeddings(pdf_dir_path=None, max_files=None):
 
     if not texts:
         print("❌ No valid texts extracted. Aborting embedding generation.")
-        return
+        return {"success": False, "error": "No valid texts extracted"}
 
     # Load model and generate embeddings
     print("Loading sentence transformer model...")
@@ -80,7 +108,46 @@ def generate_embeddings(pdf_dir_path=None, max_files=None):
 
     print("✅ FAISS index and metadata saved successfully.")
     print(f"✅ Index contains {len(texts)} documents.")
+    
+    # Optionally upload to Azure
+    if connection_string:
+        print("🔄 Uploading to Azure Blob Storage...")
+        azure_helper = get_azure_blob_helper(connection_string)
+        
+        index_path = os.path.join(store_dir, "legal_cases.index")
+        id2name_path = os.path.join(store_dir, "id2name.json")
+        
+        if azure_helper.upload_faiss_index(index_path, id2name_path):
+            print("✅ FAISS index uploaded to Azure Blob Storage successfully.")
+        else:
+            print("⚠️  Failed to upload FAISS index to Azure Blob Storage.")
+    
+    return {
+        "success": True,
+        "documents_processed": len(texts),
+        "index_dimension": d,
+        "local_path": store_dir
+    }
 
 if __name__ == "__main__":
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="Generate embeddings for legal documents")
+    parser.add_argument("--azure", action="store_true", help="Use Azure Blob Storage")
+    parser.add_argument("--max-files", type=int, help="Maximum number of files to process")
+    parser.add_argument("--pdf-dir", type=str, help="Local PDF directory path")
+    
+    args = parser.parse_args()
+    
     # Generate embeddings when this file is run directly
-    generate_embeddings()
+    result = generate_embeddings(
+        pdf_dir_path=args.pdf_dir,
+        max_files=args.max_files,
+        use_azure=args.azure
+    )
+    
+    if not result["success"]:
+        print(f"❌ Embedding generation failed: {result.get('error', 'Unknown error')}")
+        exit(1)
+    else:
+        print("🎉 Embedding generation completed successfully!")

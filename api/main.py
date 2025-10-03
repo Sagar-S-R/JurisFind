@@ -54,14 +54,25 @@ def create_app():
     # Root route
     @app.get("/")
     async def home():
+        storage_info = "Azure Blob Storage" if os.getenv("AZURE_STORAGE_CONNECTION_STRING") else "Local Files"
+        
         return {
             'message': 'JurisFind API - Legal Case Search Service',
-            'version': '1.0.0',
+            'version': '2.0.0',
+            'storage_backend': storage_info,
             'endpoints': {
                 'health_check': '/api/health',
                 'search_cases_post': '/api/search (POST)',
                 'search_cases_get': '/api/search?q=your_query&top_k=5 (GET)',
                 'case_details': '/api/case/{filename}',
+                'pdf_files': '/api/pdf/{filename}',
+                'list_pdfs': '/api/list-pdfs',
+                'upload_pdf_azure': '/api/upload-pdf-to-azure (POST)',
+                'generate_embeddings': '/api/generate-embeddings-from-azure (POST)',
+                'confidential_upload': '/api/upload-confidential-pdf (POST)',
+                'confidential_retrieve': '/api/retrieve-similar-cases (POST)',
+                'confidential_analyze': '/api/analyze-document (POST)',
+                'confidential_question': '/api/ask-question (POST)',
                 'docs': '/docs',
                 'redoc': '/redoc'
             },
@@ -69,8 +80,18 @@ def create_app():
                 'search_post': 'Send POST request with JSON: {"query": "your search query", "top_k": 5}',
                 'search_get': 'Send GET request with query parameter: ?q=your_query&top_k=5',
                 'case_details': 'Get details about a specific case file',
+                'pdf_files': 'Serve PDF files from Azure Blob Storage or local storage',
+                'list_pdfs': 'List all available PDF files',
+                'upload_pdf_azure': 'Upload PDF files to Azure Blob Storage',
+                'generate_embeddings': 'Generate FAISS embeddings from Azure PDFs',
                 'health': 'Check service health and total number of indexed cases',
                 'interactive_docs': 'Visit /docs for interactive API documentation'
+            },
+            'azure_features': {
+                'enabled': bool(os.getenv("AZURE_STORAGE_CONNECTION_STRING")),
+                'container': os.getenv("AZURE_DATA_CONTAINER", "data"),
+                'pdf_storage': 'pdfs/ directory in Azure container',
+                'index_storage': 'faiss_store/ directory in Azure container'
             }
         }
     
