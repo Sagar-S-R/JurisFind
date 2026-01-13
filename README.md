@@ -40,12 +40,12 @@
 
 ### What Makes JurisFind Special?
 
-- **☁️ Cloud-Native Architecture**: Full Azure Blob Storage integration for unlimited document storage
-- **� AI-Powered Analysis**: Intelligent document processing using LangChain and Groq AI
-- **⚡ Lightning-Fast Search**: FAISS-powered semantic search that understands legal concepts
-- **� Modern UI**: Clean, responsive React interface for seamless user experience
-- **🔒 Secure & Scalable**: Enterprise-ready with proper authentication and cloud security
-- **🛠️ Developer-Friendly**: Comprehensive APIs and management tools for easy integration
+- **Cloud-Native Architecture**: Full Azure Blob Storage integration for unlimited document storage
+- **AI-Powered Analysis**: Intelligent document processing using LangChain and Groq AI
+- **Lightning-Fast Search**: FAISS-powered semantic search that understands legal concepts
+- **Modern UI**: Clean, responsive React interface for seamless user experience
+- **Secure & Scalable**: Enterprise-ready with proper authentication and cloud security
+- **Developer-Friendly**: Comprehensive APIs and management tools for easy integration
 
 ### Target Users
 
@@ -54,17 +54,17 @@
 - **Legal Tech Teams**: Developers building legal technology solutions
 - **Compliance Teams**: Organizations needing to analyze legal documents for compliance purposes
 
-## ☁️ Azure Integration
+## Azure Integration
 
 **Enterprise-Grade Cloud Storage**
 
 JurisFind features comprehensive Azure Blob Storage integration for scalable, secure document management:
 
-- **📁 Cloud Document Storage**: Store thousands of legal documents in Azure Blob Storage
-- **🔄 Automatic Sync**: Seamless synchronization between local development and cloud production
-- **⚡ Fast Indexing**: Generate FAISS embeddings directly from Azure-stored PDFs
-- **🌐 Global Access**: Access documents from anywhere with Azure's global infrastructure
-- **🔒 Enterprise Security**: Azure's enterprise-grade security and compliance features
+- **Cloud Document Storage**: Store thousands of legal documents in Azure Blob Storage
+- **Automatic Sync**: Seamless synchronization between local development and cloud production
+- **Fast Indexing**: Generate FAISS embeddings directly from Azure-stored PDFs
+- **Global Access**: Access documents from anywhere with Azure's global infrastructure
+- **Enterprise Security**: Azure's enterprise-grade security and compliance features
 
 ### Azure Features
 
@@ -93,9 +93,9 @@ python tests/test_azure_integration.py
 
 See [Azure Integration Guide](docs/azure_integration.md) for complete setup instructions.
 
-## 🚀 Key Features
+## Key Features
 
-### 🤖 Agentic AI Architecture
+### Agentic AI Architecture
 
 **Intelligent Document Processing**
 - **LangChain Integration**: Advanced prompt engineering and chain-based processing that enables complex reasoning workflows
@@ -104,13 +104,13 @@ See [Azure Integration Guide](docs/azure_integration.md) for complete setup inst
 - **Temporary Embeddings**: Dynamic vector stores created for each document analysis session, ensuring isolated and secure processing
 
 **Why Agentic AI?**
-Unlike traditional document analysis tools, Legal Bolt uses AI agents that can:
+Unlike traditional document analysis tools, JurisFind uses AI agents that can:
 - Plan multi-step analysis workflows
 - Reason about document structure and legal concepts
 - Maintain context across complex queries
 - Adapt their approach based on document type and user needs
 
-### 🎨 Frontend (React + Router)
+### Frontend (React + Router)
 
 **Professional Legal Interface**
 - **Multi-Page Application**: Intuitive search interface with dedicated PDF analysis pages for focused document review
@@ -139,13 +139,13 @@ Unlike traditional document analysis tools, Legal Bolt uses AI agents that can:
 - **Caching**: Persistent FAISS index for fast search across document collections
 - **Error Recovery**: Robust error handling with detailed logging and graceful degradation
 
-## 🏗️ Architecture
+##  Architecture
 
-Legal Bolt uses a microservices architecture with React frontend, FastAPI backend, and AI services. See [architecture.md](docs/architecture.md) for detailed system design and data flow.
+JurisFind uses a microservices architecture with React frontend, FastAPI backend, and AI services. See [architecture.md](docs/architecture.md) for detailed system design and data flow.
 
-## 🚀 Quick Start
+##  Quick Start
 
-Get started quickly with Legal Bolt. See [installation.md](docs/installation.md) for detailed setup instructions.
+Get started quickly with JurisFind. See [installation.md](docs/installation.md) for detailed setup instructions.
 
 ### Prerequisites
 
@@ -193,7 +193,7 @@ Complete API reference and endpoints. See [api_reference.md](docs/api_reference.
 - **Vector Store**: FAISS for similarity search
 - **Text Splitting**: Recursive character text splitter for chunking
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### Option 1: Azure Cloud Setup (Recommended for Production)
 
@@ -368,7 +368,7 @@ The application uses optimized models for legal document analysis:
 - **Prompt Engineering**: Monitor AI responses and adjust templates as needed
 - **Token Limits**: Large documents are truncated to stay within model limits
 
-## 🔒 Security & Privacy
+##  Security & Privacy
 
 ### Data Handling
 
@@ -404,7 +404,7 @@ The application uses optimized models for legal document analysis:
 - No persistent storage of document content
 - Configurable retention policies
 
-## 🤝 Contributing
+## Contributing
 
 ### How to Contribute
 
@@ -477,12 +477,12 @@ npm run test:integration
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 **MIT License Summary:**
-- ✅ Commercial use allowed
-- ✅ Modification allowed
-- ✅ Distribution allowed
-- ✅ Private use allowed
-- ⚠️ No warranty provided
-- ⚠️ No liability assumed
+-  Commercial use allowed
+-  Modification allowed
+-  Distribution allowed
+-  Private use allowed
+-  No warranty provided
+-  No liability assumed
 
 
 ### Reporting Issues
@@ -504,27 +504,5 @@ uname -a  # Linux/macOS
 systeminfo  # Windows
 ```
 
-**Issue Details:**
-- Clear description of the problem
-- Steps to reproduce
-- Expected vs actual behavior
-- Relevant logs and error messages
-- Screenshots if applicable
-
-**Contact Information:**
-- GitHub: [Project Repository](https://github.com/your-repo/legal-bolt)
-- Email: support@legal-bolt.com
-- Documentation: [Project Wiki](https://github.com/your-repo/legal-bolt/wiki)
-
----
-
-<div align="center">
-
-**JurisFind** - Empowering Legal Professionals with AI
 
 
-[![GitHub stars](https://img.shields.io/github/stars/your-repo/legal-bolt?style=social)](https://github.com/your-repo/legal-bolt)
-[![GitHub forks](https://img.shields.io/github/forks/your-repo/legal-bolt?style=social)](https://github.com/your-repo/legal-bolt)
-[![GitHub issues](https://img.shields.io/github/issues/your-repo/legal-bolt)](https://github.com/your-repo/legal-bolt/issues)
-
-</div>
