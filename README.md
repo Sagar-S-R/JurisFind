@@ -256,33 +256,6 @@ API_HOST="localhost"
 API_PORT="8000"
 ```
 
-## File Structure
-
-```
-Legal_Case/
-├── frontend/                     # Frontend React (Vite) application
-│   ├── index.html                # Vite HTML entry
-│   ├── package.json              # Frontend dependencies and scripts
-│   ├── vite.config.ts            # Vite configuration
-│   ├── tailwind.config.js        # Tailwind CSS configuration
-│   ├── eslint.config.js          # ESLint config
-│   └── (src/, etc.)              # App source files (not fully listed here)
-├── api/                          # Backend FastAPI application
-│   ├── main.py                   # FastAPI app entry point
-│   ├── routes.py                 # All API endpoints
-│   ├── legal_agent.py            # LangChain AI agent (CORE)
-│   ├── search_service.py         # Vector search operations
-│   ├── generate_embeddings.py    # PDF processing & embedding generation
-│   ├── requirements.txt          # Python dependencies
-│   ├── .env                      # Backend environment variables
-│   ├── .env.example              # Backend environment template
-│   ├── pdfs/                     # PDF documents (local)
-│   └── faiss_store/              # Pre-generated embeddings
-│       ├── legal_cases.index     # FAISS index file
-│       └── id2name.json          # Document metadata
-└── README.md                     # Project documentation
-```
-
 ## Configuration
 
 ### Environment Variables
