@@ -38,7 +38,8 @@ def create_app():
         allow_origins=[
             "http://localhost:5173",  # Vite dev server
             "http://localhost:3000",  # React dev server
-            # Add your Azure Static Web App URL here when deploying:
+            "http://20.186.113.106",  # Azure VM public IP
+            # Add your Azure Static Web App URL here after deploying:
             # "https://your-app.azurestaticapps.net",
         ],
         allow_credentials=True,
