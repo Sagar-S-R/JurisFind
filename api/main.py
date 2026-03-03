@@ -37,11 +37,9 @@ def create_app():
         CORSMiddleware,
         allow_origins=[
             "http://localhost:5173",  # Vite dev server
-            "http://localhost:3000",  # React dev server  
-            "https://jurisfind.vercel.app",  # Production frontend
-            "https://jurisfind.netlify.app",  # Alternative frontend
-            "http://your-vm-public-ip",  # Your VM IP
-            "*"  # Allow all for development (remove in production)
+            "http://localhost:3000",  # React dev server
+            # Add your Azure Static Web App URL here when deploying:
+            # "https://your-app.azurestaticapps.net",
         ],
         allow_credentials=True,
         allow_methods=["*"],

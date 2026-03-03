@@ -1,64 +1,32 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Scale, Shield } from 'lucide-react';
+import { Scale } from 'lucide-react';
 
 function Footer() {
   return (
-    <footer className="bg-gradient-to-r from-gray-900 via-purple-900 to-violet-900 text-white mt-16">
-      <div className="container mx-auto px-4 py-12 max-w-7xl">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+    <footer className="border-t border-gray-200/60" style={{ backgroundColor: '#D8D8D2' }}>
+      <div className="max-w-6xl mx-auto px-6 py-10">
+        <div className="flex flex-col md:flex-row justify-between gap-8">
           {/* Brand */}
-          <div className="space-y-4">
-            <div className="flex items-center space-x-2">
-              <div className="bg-gradient-to-r from-purple-400 to-violet-400 p-2 rounded-lg">
-                <Scale className="h-5 w-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">
-                JurisFind
-              </span>
+          <div className="flex items-center gap-2">
+            <div className="bg-gray-900 p-1.5 rounded-lg">
+              <Scale className="h-4 w-4 text-white" />
             </div>
-            <p className="text-gray-300 text-sm leading-relaxed">
-              Professional AI-powered legal research platform designed for legal professionals, delivering precise case analysis and intelligent legal insights with enterprise-grade security and confidentiality.
-            </p>
+            <span className="text-sm font-semibold text-gray-900">JurisFind</span>
           </div>
 
-          {/* Legal Services */}
-          <div>
-            <h3 className="font-semibold text-white mb-4">Legal Services</h3>
-            <ul className="space-y-2 text-sm text-gray-300">
-              <li><Link to="/search" className="hover:text-purple-300 transition-colors">Case Research</Link></li>
-              <li><Link to="/legal-chat" className="hover:text-purple-300 transition-colors">Legal Analysis</Link></li>
-              <li><Link to="/confidential-upload" className="hover:text-purple-300 transition-colors">Document Review</Link></li>
-              <li><Link to="/search" className="hover:text-purple-300 transition-colors">Precedent Search</Link></li>
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h3 className="font-semibold text-white mb-4">Support & Legal</h3>
-            <ul className="space-y-2 text-sm text-gray-300">
-              <li><a href="#help" className="hover:text-purple-300 transition-colors">Help Center</a></li>
-              <li><a href="#terms" className="hover:text-purple-300 transition-colors">Terms of Service</a></li>
-              <li><a href="#privacy" className="hover:text-purple-300 transition-colors">Privacy Policy</a></li>
-              <li><a href="#contact" className="hover:text-purple-300 transition-colors">Contact Support</a></li>
-            </ul>
+          {/* Links */}
+          <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-gray-500">
+            <Link to="/search" className="hover:text-gray-900 transition-colors">Case Search</Link>
+            <Link to="/legal-chat" className="hover:text-gray-900 transition-colors">AI Assistant</Link>
+            <Link to="/confidential-upload" className="hover:text-gray-900 transition-colors">Analysis</Link>
+            <a href="#privacy" className="hover:text-gray-900 transition-colors">Privacy</a>
+            <a href="#terms" className="hover:text-gray-900 transition-colors">Terms</a>
           </div>
         </div>
 
-        <div className="border-t border-gray-700 mt-8 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-gray-400 text-sm">
-            © 2025 JurisFind. All rights reserved. Professional legal research platform.
-          </p>
-          <div className="flex space-x-6 mt-4 md:mt-0">
-            <a href="#privacy" className="text-gray-400 hover:text-purple-300 transition-colors">
-              <span className="sr-only">Privacy Policy</span>
-              <Shield className="h-4 w-4" />
-            </a>
-            <a href="#terms" className="text-gray-400 hover:text-purple-300 transition-colors">
-              <span className="sr-only">Terms of Service</span>
-              <Scale className="h-4 w-4" />
-            </a>
-          </div>
+        <div className="mt-8 pt-6 border-t border-gray-200/60">
+          <p className="text-xs text-gray-400">© 2026 JurisFind. All rights reserved.</p>
         </div>
       </div>
     </footer>

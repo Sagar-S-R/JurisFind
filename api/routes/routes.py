@@ -84,6 +84,16 @@ class RetrieveResponse(BaseModel):
     similar_cases: list
     total_found: int
 
+# Unified Analysis Models
+class UnifiedAnalysisRequest(BaseModel):
+    filename: str
+    source: str = "database"  # "database" or "uploaded"
+
+class UnifiedQuestionRequest(BaseModel):
+    filename: str
+    question: str
+    source: str = "database"  # "database" or "uploaded"
+
 @router.post("/search", response_model=SearchResponse)
 async def search_cases(request: SearchRequest):
     """Search for legal cases based on query text."""
@@ -167,6 +177,103 @@ async def health_check():
             status_code=503,
             detail=f"Service unhealthy: {str(e)}"
         )
+
+# ============================================
+# UNIFIED ANALYSIS ENDPOINTS
+# ============================================
+# These endpoints consolidate database and uploaded PDF analysis into single routes
+
+@router.post("/unified/analyze", response_model=AnalysisResponse)
+async def unified_analyze(request: UnifiedAnalysisRequest):
+    """
+    Unified document analysis endpoint.
+    Works for both database PDFs and uploaded confidential PDFs.
+    
+    source: "database" - analyze PDF from database/storage
+    source: "uploaded" - analyze uploaded confidential PDF
+    """
+    try:
+        if request.source == "uploaded":
+            # Handle uploaded/confidential PDF
+            processor = get_pdf_processor()
+            temp_path = os.path.join(processor.temp_dir, f"confidential_{request.filename}")
+            
+            if not os.path.exists(temp_path):
+                raise HTTPException(status_code=404, detail="Uploaded PDF not found. Please upload again.")
+            
+            result = processor.analyze_uploaded_document(temp_path, request.filename)
+        else:
+            # Handle database PDF (default)
+            connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+            
+            if connection_string:
+                # Use Azure Blob Storage
+                import tempfile
+                azure_helper = get_azure_blob_helper(connection_string)
+                
+                if not azure_helper.blob_exists("data", f"pdfs/{request.filename}"):
+                    raise HTTPException(status_code=404, detail="PDF not found in Azure storage")
+                
+                pdf_content = azure_helper.download_blob("data", f"pdfs/{request.filename}")
+                
+                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                    temp_file.write(pdf_content)
+                    pdf_path = temp_file.name
+                
+                try:
+                    agent = get_agent()
+                    result = agent.analyze_document(pdf_path, request.filename)
+                finally:
+                    if os.path.exists(pdf_path):
+                        os.unlink(pdf_path)
+            else:
+                # Use local files
+                pdf_path = os.path.join(os.path.dirname(__file__), "..", "data", "pdfs", request.filename)
+                
+                if not os.path.exists(pdf_path):
+                    raise HTTPException(status_code=404, detail=f"PDF not found: {request.filename}")
+                
+                agent = get_agent()
+                result = agent.analyze_document(pdf_path, request.filename)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Analysis failed"))
+        
+        return AnalysisResponse(**result)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/unified/ask", response_model=QuestionResponse)
+async def unified_ask_question(request: UnifiedQuestionRequest):
+    """
+    Unified Q&A endpoint.
+    Works for both database PDFs and uploaded confidential PDFs.
+    
+    source: "database" - ask question about database PDF
+    source: "uploaded" - ask question about uploaded confidential PDF
+    """
+    try:
+        if request.source == "uploaded":
+            # Handle uploaded/confidential PDF
+            processor = get_pdf_processor()
+            answer = processor.answer_question_uploaded(request.filename, request.question)
+        else:
+            # Handle database PDF (default)
+            agent = get_agent()
+            answer = agent.answer_question(request.filename, request.question)
+        
+        return QuestionResponse(
+            success=True,
+            filename=request.filename,
+            question=request.question,
+            answer=answer
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/search", response_model=SearchResponse)
 async def search_cases_get(
@@ -375,40 +482,49 @@ async def generate_embeddings_from_azure(max_files: Optional[int] = None):
 @router.post("/analyze-document", response_model=AnalysisResponse)
 async def analyze_document(filename: str):
     """Analyze a legal document using the LangChain agent."""
-    import tempfile
     try:
-        # Get Azure connection string
+        # Check for Azure connection (optional)
         connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-        if not connection_string:
-            raise HTTPException(status_code=500, detail="Azure storage not configured")
         
-        # Get Azure blob helper
-        azure_helper = get_azure_blob_helper(connection_string)
-        
-        # Check if file exists in Azure
-        if not azure_helper.blob_exists("data", f"pdfs/{filename}"):
-            raise HTTPException(status_code=404, detail="PDF not found in Azure storage")
-        
-        # Download PDF content to memory for analysis
-        pdf_content = azure_helper.download_blob("data", f"pdfs/{filename}")
-        
-        # Create temporary file for agent analysis
-        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-            temp_file.write(pdf_content)
-            temp_path = temp_file.name
-        
-        try:
+        if connection_string:
+            # Use Azure Blob Storage
+            import tempfile
+            azure_helper = get_azure_blob_helper(connection_string)
+            
+            if not azure_helper.blob_exists("data", f"pdfs/{filename}"):
+                raise HTTPException(status_code=404, detail="PDF not found in Azure storage")
+            
+            pdf_content = azure_helper.download_blob("data", f"pdfs/{filename}")
+            
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                temp_file.write(pdf_content)
+                pdf_path = temp_file.name
+            
+            try:
+                agent = get_agent()
+                result = agent.analyze_document(pdf_path, filename)
+                
+                if not result["success"]:
+                    raise HTTPException(status_code=500, detail=result["error"])
+                
+                return AnalysisResponse(**result)
+            finally:
+                if os.path.exists(pdf_path):
+                    os.unlink(pdf_path)
+        else:
+            # Use local files
+            pdf_path = os.path.join(os.path.dirname(__file__), "..", "data", "pdfs", filename)
+            
+            if not os.path.exists(pdf_path):
+                raise HTTPException(status_code=404, detail=f"PDF not found: {filename}")
+            
             agent = get_agent()
-            result = agent.analyze_document(temp_path, filename)
+            result = agent.analyze_document(pdf_path, filename)
             
             if not result["success"]:
                 raise HTTPException(status_code=500, detail=result["error"])
             
             return AnalysisResponse(**result)
-        finally:
-            # Clean up temporary file
-            if os.path.exists(temp_path):
-                os.unlink(temp_path)
         
     except HTTPException:
         raise

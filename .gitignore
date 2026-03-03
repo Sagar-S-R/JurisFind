@@ -103,3 +103,5 @@ transformers_cache/
 confidential_uploads/
 private_cases/
 temp_analysis/
+
+TECHNICAL_DOCUMENTATION.md

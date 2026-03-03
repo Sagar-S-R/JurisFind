@@ -1,201 +1,217 @@
-import React from 'react';
+﻿import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FileText, Brain, Shield, Zap, CheckCircle, MessageSquare, Upload } from 'lucide-react';
+import { Search, MessageSquare, Upload, FileText, Scale } from 'lucide-react';
 
 function LandingPage() {
   const navigate = useNavigate();
 
-  const features = [
-    {
-      icon: Brain,
-      title: "AI-Powered Analysis",
-      description: "Advanced natural language processing for intelligent legal research"
-    },
-    {
-      icon: Zap,
-      title: "Instant Results",
-      description: "Get relevant case law and precedents in seconds, not hours"
-    },
-    {
-      icon: Shield,
-      title: "Secure Platform",
-      description: "Enterprise-grade security with complete client confidentiality"
-    },
-    {
-      icon: FileText,
-      title: "Comprehensive Database",
-      description: "Access to extensive legal case database and court decisions"
-    }
-  ];
-
-  const services = [
-    {
-      icon: Search,
-      title: "Legal Search",
-      description: "Search through thousands of legal cases and precedents",
-      path: "/search",
-      color: "from-blue-600 to-indigo-600"
-    },
-    {
-      icon: MessageSquare,
-      title: "Legal Assistant",
-      description: "AI-powered legal consultation and Q&A",
-      path: "/legal-chat",
-      color: "from-green-600 to-emerald-600"
-    },
-    {
-      icon: Upload,
-      title: "Private Analysis",
-      description: "Upload and analyze confidential legal documents",
-      path: "/confidential-upload",
-      color: "from-purple-600 to-violet-600"
-    }
-  ];
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-violet-50">
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: '#EAEAE4' }}
+    >
       {/* Hero Section */}
-        <div className="relative overflow-hidden bg-gradient-to-r from-purple-600 via-violet-600 to-purple-700 text-white">
-        <div className="absolute inset-0 bg-black opacity-10"></div>
-        <div className="relative container mx-auto px-4 py-20 max-w-6xl">
-          <div className="text-center">
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 tracking-tight">
-              Professional Legal Research
-            </h1>
-            <p className="text-xl md:text-2xl font-light mb-8 max-w-3xl mx-auto leading-relaxed">
-              Advanced AI-powered legal case research platform. Search through comprehensive legal databases, 
-              analyze complex cases, and access professional legal insights with enterprise-grade security.
-            </p>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <button
-                onClick={() => navigate('/search')}
-                className="bg-white text-purple-600 px-8 py-4 rounded-xl font-semibold text-lg
-                         hover:bg-gray-100 transition-all duration-200 shadow-lg hover:shadow-xl 
-                         transform hover:scale-105"
-              >
-                Start Searching
-              </button>
-              <button
-                onClick={() => navigate('/legal-chat')}
-                className="bg-transparent border-2 border-white text-white px-8 py-4 rounded-xl 
-                         font-semibold text-lg hover:bg-white hover:text-purple-600 
-                         transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                Try AI Assistant
-              </button>
-            </div>
+      <div className="relative overflow-hidden">
+        {/* Warm radial gradient blob in the background */}
+        <div
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/3 w-[700px] h-[400px] rounded-full pointer-events-none"
+          style={{
+            background: 'radial-gradient(ellipse at center, rgba(255,210,170,0.45) 0%, rgba(255,200,140,0.2) 45%, transparent 70%)',
+            filter: 'blur(40px)',
+          }}
+        />
 
-            {/* Status Bar */}
-            <div className="flex flex-wrap justify-center items-center space-x-6 text-sm font-medium">
-              <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-4 py-2 rounded-full">
-                <CheckCircle className="h-4 w-4 text-green-400" />
-                <span>50,000+ Legal Cases</span>
-              </div>
-              <div className="flex items-center space-x-2 bg-white bg-opacity-20 px-4 py-2 rounded-full">
-                <Shield className="h-4 w-4 text-purple-300" />
-                <span>Enterprise Security</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+        <div className="relative max-w-5xl mx-auto px-4 sm:px-6 pt-14 sm:pt-20 pb-10 text-center">
+          {/* Headline */}
+          <h1
+            className="font-serif-display text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-gray-900 leading-tight mb-5"
+            style={{ letterSpacing: '-0.02em' }}
+          >
+            Intelligent legal research<br className="hidden sm:block" />powered by AI
+          </h1>
 
-      {/* Services Section */}
-      <div className="py-16 bg-white">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Our Legal Services
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Choose from our comprehensive suite of AI-powered legal research tools
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {services.map((service, index) => (
-              <div
-                key={index}
-                onClick={() => navigate(service.path)}
-                className="group p-8 bg-white rounded-2xl shadow-lg hover:shadow-2xl 
-                         transition-all duration-300 border border-gray-100 hover:border-purple-200 
-                         transform hover:-translate-y-2 cursor-pointer"
-              >
-                <div className={`bg-gradient-to-r ${service.color} w-16 h-16 rounded-2xl 
-                              flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
-                  <service.icon className="h-8 w-8 text-white" />
-                </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-3">{service.title}</h3>
-                <p className="text-gray-600 leading-relaxed mb-4">{service.description}</p>
-                <div className="flex items-center text-purple-600 font-medium group-hover:text-purple-700">
-                  <span>Get Started</span>
-                  <svg className="w-4 h-4 ml-2 group-hover:translate-x-1 transition-transform" 
-                       fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
-                          d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Features Section */}
-      <div className="py-16 bg-gradient-to-r from-gray-50 to-purple-50">
-        <div className="container mx-auto px-4 max-w-6xl">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Enterprise Legal Research Platform
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Powered by cutting-edge artificial intelligence and machine learning technologies, 
-              designed specifically for legal professionals and law firms requiring the highest standards of accuracy and security.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {features.map((feature, index) => (
-              <div key={index} className="group p-6 bg-white rounded-xl 
-                                        hover:shadow-lg transition-all duration-300 border border-gray-100
-                                        hover:border-purple-200 transform hover:-translate-y-1">
-                <div className="bg-gradient-to-r from-purple-600 to-violet-600 w-12 h-12 rounded-lg 
-                              flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <feature.icon className="h-6 w-6 text-white" />
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">{feature.title}</h3>
-                <p className="text-gray-600 text-sm leading-relaxed">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* CTA Section */}
-      <div className="py-16 bg-white">
-        <div className="container mx-auto px-4 max-w-4xl text-center">
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
-            Ready to Transform Your Legal Research?
-          </h2>
-          <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-            Join thousands of legal professionals who trust JurisFind for their research needs.
+          {/* Subtitle */}
+          <p className="text-base md:text-lg text-gray-500 max-w-lg mx-auto mb-8 leading-relaxed">
+            Search thousands of legal cases, get AI-powered insights,
+            and analyze confidential documents — all in one place.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+
+          {/* CTA Button */}
+          <button
+            onClick={() => navigate('/search')}
+            className="inline-flex items-center gap-2 bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
+          >
+            Start for free
+          </button>
+        </div>
+
+        {/* Product Preview Mockup */}
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-16 sm:pb-24">
+          <div
+            className="rounded-2xl overflow-hidden shadow-2xl border border-gray-200/50"
+            style={{ backgroundColor: '#ffffff' }}
+          >
+            {/* Mockup Top Bar */}
+            <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-white">
+              <div className="flex items-center gap-2">
+                <div className="bg-gray-900 p-1 rounded-md">
+                  <Scale className="h-3.5 w-3.5 text-white" />
+                </div>
+                <span className="text-sm font-semibold text-gray-800">JurisFind</span>
+                <span className="text-gray-300 mx-1">/</span>
+                <span className="text-sm text-gray-500">Legal Search</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-gray-200" />
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-400 to-orange-500" />
+              </div>
+            </div>
+
+            {/* Mockup Sidebar + Content */}
+            <div className="flex" style={{ minHeight: '280px' }}>
+              {/* Sidebar - hidden on mobile */}
+              <div className="hidden sm:flex w-40 border-r border-gray-100 p-4 bg-gray-50/50 flex-col gap-1">
+                {[
+                  { icon: Search, label: 'Legal Search', active: true },
+                  { icon: MessageSquare, label: 'AI Assistant', active: false },
+                  { icon: Upload, label: 'Analysis', active: false },
+                ].map(({ icon: Icon, label, active }) => (
+                  <div
+                    key={label}
+                    className={`flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-medium cursor-default ${
+                      active ? 'bg-white shadow-sm text-gray-900' : 'text-gray-400'
+                    }`}
+                  >
+                    <Icon className={`h-3.5 w-3.5 ${active ? 'text-gray-700' : 'text-gray-300'}`} />
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              {/* Main content */}
+              <div className="flex-1 p-4 sm:p-6 min-w-0">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="min-w-0">
+                    <h2 className="text-sm sm:text-base font-semibold text-gray-900">Case Search</h2>
+                    <p className="text-xs text-gray-400 mt-0.5 hidden sm:block">Search through 50,000+ legal precedents</p>
+                  </div>
+                  <button className="text-xs bg-gray-900 text-white px-3 py-1.5 rounded-full font-medium flex-shrink-0 ml-2">
+                    New Search
+                  </button>
+                </div>
+
+                {/* Search Bar Mockup */}
+                <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3 py-2 mb-4 bg-gray-50">
+                  <Search className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+                  <span className="text-xs text-gray-400 truncate">Search legal cases, acts, precedents...</span>
+                </div>
+
+                {/* Result Cards */}
+                <div className="space-y-3">
+                  {[
+                    { title: 'Kesavananda Bharati v. State of Kerala', year: '1973', type: 'Constitutional' },
+                    { title: 'Maneka Gandhi v. Union of India', year: '1978', type: 'Fundamental Rights' },
+                    { title: 'Vishaka v. State of Rajasthan', year: '1997', type: 'Labour Law' },
+                  ].map((c) => (
+                    <div key={c.title} className="flex items-center justify-between p-3 rounded-xl border border-gray-100 bg-white cursor-default">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-50 border border-amber-100 flex items-center justify-center flex-shrink-0">
+                          <FileText className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-600" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-gray-800 line-clamp-1">{c.title}</p>
+                          <p className="text-xs text-gray-400 mt-0.5">{c.type} · {c.year}</p>
+                        </div>
+                      </div>
+                      <span className="text-xs text-gray-300 font-medium ml-2 flex-shrink-0 hidden sm:inline">View →</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Features Strip */}
+      <div className="border-t border-gray-200/60" style={{ backgroundColor: '#EAEAE4' }}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
+          <div className="text-center mb-12">
+            <h2
+              className="font-serif-display text-3xl md:text-4xl text-gray-900 mb-4"
+              style={{ letterSpacing: '-0.01em' }}
+            >
+              Everything a legal professional needs
+            </h2>
+            <p className="text-sm text-gray-500 max-w-md mx-auto">
+              From quick case lookups to deep document analysis — built for speed, accuracy, and privacy.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              {
+                icon: Search,
+                title: 'Case Search',
+                desc: 'Instantly find relevant precedents from our comprehensive legal database.',
+                path: '/search',
+              },
+              {
+                icon: MessageSquare,
+                title: 'AI Legal Assistant',
+                desc: 'Ask complex legal questions and get well-reasoned, cited answers.',
+                path: '/legal-chat',
+              },
+              {
+                icon: Upload,
+                title: 'Confidential Analysis',
+                desc: 'Upload private documents and receive detailed AI-powered analysis.',
+                path: '/confidential-upload',
+              },
+            ].map((f) => (
+              <div
+                key={f.title}
+                onClick={() => navigate(f.path)}
+                className="group p-6 rounded-2xl border border-gray-200/60 bg-white/60 hover:bg-white hover:shadow-md transition-all duration-200 cursor-pointer"
+              >
+                <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center mb-4">
+                  <f.icon className="h-4 w-4 text-white" />
+                </div>
+                <h3 className="text-sm font-semibold text-gray-900 mb-1.5">{f.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
+                <div className="mt-4 text-xs font-medium text-gray-900 group-hover:gap-2 flex items-center gap-1 transition-all">
+                  Get started <span className="group-hover:translate-x-0.5 transition-transform inline-block">→</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Bottom CTA */}
+      <div className="border-t border-gray-200/60" style={{ backgroundColor: '#E0E0DA' }}>
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20 text-center">
+          <h2
+            className="font-serif-display text-3xl md:text-4xl text-gray-900 mb-4"
+            style={{ letterSpacing: '-0.01em' }}
+          >
+            Ready to research smarter?
+          </h2>
+          <p className="text-sm text-gray-500 mb-8 max-w-sm mx-auto">
+            Join legal professionals who trust JurisFind for fast, reliable, AI-powered research.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={() => navigate('/search')}
-              className="bg-gradient-to-r from-purple-600 to-violet-600 text-white px-8 py-4 rounded-xl 
-                       font-semibold text-lg hover:from-purple-700 hover:to-violet-700 
-                       transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105"
+              className="bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors"
             >
-              Start Your Search
+              Start searching
             </button>
             <button
               onClick={() => navigate('/legal-chat')}
-              className="bg-gray-100 text-gray-800 px-8 py-4 rounded-xl font-semibold text-lg 
-                       hover:bg-gray-200 transition-all duration-200 shadow-md hover:shadow-lg"
+              className="bg-white text-gray-700 px-7 py-3 rounded-full text-sm font-medium border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
             >
-              Ask AI Assistant
+              Try AI Assistant
             </button>
           </div>
         </div>

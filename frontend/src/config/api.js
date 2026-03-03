@@ -1,7 +1,8 @@
 // API Configuration
 const API_CONFIG = {
-  // Use environment variable if available, otherwise fallback to production URL
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://13.71.23.132',
+  // Set VITE_API_BASE_URL in .env.local for local dev (e.g. http://localhost:8000)
+  // Set it in Azure Static Web App env vars for production
+  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
   
   // API endpoints
   ENDPOINTS: {
@@ -11,12 +12,16 @@ const API_CONFIG = {
     LEGAL_CHAT_STATS: '/api/legal-chat/stats',
     UPLOAD_CONFIDENTIAL: '/api/upload-confidential-pdf',
     RETRIEVE_SIMILAR_CASES: '/api/retrieve-similar-cases',
+    // Legacy endpoints (kept for backward compatibility)
     ANALYZE_CONFIDENTIAL: '/api/analyze-confidential-pdf',
     ASK_QUESTION_CONFIDENTIAL: '/api/ask-question-confidential',
     ANALYZE_DOCUMENT: '/api/analyze-document',
     DOCUMENT_STATS: '/api/document-stats',
     ASK_QUESTION: '/api/ask-question',
     PDF: '/api/pdf',
+    // Unified endpoints (new)
+    UNIFIED_ANALYZE: '/api/unified/analyze',
+    UNIFIED_ASK: '/api/unified/ask',
   }
 };
 

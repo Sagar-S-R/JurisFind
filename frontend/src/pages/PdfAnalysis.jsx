@@ -1,25 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import ReactMarkdown from 'react-markdown';
 import { getApiUrl, getPdfUrl } from '../config/api';
 import { 
   ArrowLeft, 
   FileText, 
-  MessageCircle, 
   Send, 
   Loader2, 
   AlertCircle,
   CheckCircle,
-  BarChart3,
   Trash2,
   Eye,
   Download,
   Brain,
-  Clock,
   User,
   Bot,
-  Scale,
-  BookOpen
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 const PdfAnalysis = () => {
@@ -35,6 +33,7 @@ const PdfAnalysis = () => {
   const [chatHistory, setChatHistory] = useState([]);
   const [isAsking, setIsAsking] = useState(false);
   const [documentStats, setDocumentStats] = useState(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   // Get the previous page path, default to '/' if not available
   const previousPage = location.state?.from || '/';
@@ -53,19 +52,28 @@ const PdfAnalysis = () => {
       setLoading(true);
       setError(null);
       
-      const response = await axios.post(getApiUrl(`/api/analyze-document?filename=${filename}`));
+      // Use unified endpoint
+      const response = await axios.post(getApiUrl('/api/unified/analyze'), {
+        filename: filename,
+        source: 'database'
+      });
       
       if (response.data.success) {
         setAnalysis(response.data);
-        // Add initial analysis as first message in chat
-        setChatHistory([
-          {
-            type: 'bot',
-            content: `**Document Analysis Complete**\n\n**Summary:**\n${response.data.summary || 'Analysis completed successfully.'}`,
-            timestamp: new Date(),
-            isAnalysis: true
-          }
-        ]);
+        // Add initial analysis as first message in chat (preserve any existing user messages)
+        setChatHistory(prev => {
+          const userMessages = prev.filter(m => !m.isAnalysis);
+          return [
+            {
+              id: 'analysis',
+              type: 'bot',
+              content: `**Document Analysis Complete**\n\n${response.data.summary || 'Analysis completed successfully.'}`,
+              timestamp: new Date(),
+              isAnalysis: true
+            },
+            ...userMessages
+          ];
+        });
       } else {
         setError('Failed to analyze document');
       }
@@ -91,7 +99,9 @@ const PdfAnalysis = () => {
   const askQuestion = async () => {
     if (!question.trim() || isAsking) return;
 
+    const msgId = Date.now();
     const userMessage = {
+      id: `user-${msgId}`,
       type: 'user',
       content: question,
       timestamp: new Date()
@@ -103,11 +113,16 @@ const PdfAnalysis = () => {
     setIsAsking(true);
 
     try {
-      const response = await axios.post(getApiUrl('/api/ask-question'), {
-        question: newQuestion,
-        filename: filename
-      });      if (response.data.success) {
+      // Use unified endpoint
+      const response = await axios.post(getApiUrl('/api/unified/ask'), {
+        question: currentQuestion,
+        filename: filename,
+        source: 'database'
+      });
+      
+      if (response.data.success) {
         const botMessage = {
+          id: `bot-${msgId}`,
           type: 'bot',
           content: response.data.answer,
           timestamp: new Date()
@@ -115,6 +130,7 @@ const PdfAnalysis = () => {
         setChatHistory(prev => [...prev, botMessage]);
       } else {
         const errorMessage = {
+          id: `err-${msgId}`,
           type: 'bot',
           content: "I apologize, but I couldn't process your question. Please try rephrasing it.",
           timestamp: new Date(),
@@ -125,6 +141,7 @@ const PdfAnalysis = () => {
     } catch (err) {
       console.error('Question error:', err);
       const errorMessage = {
+        id: `err-${msgId}`,
         type: 'bot',
         content: "I encountered an error while processing your question. Please try again.",
         timestamp: new Date(),
@@ -171,20 +188,19 @@ const PdfAnalysis = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EAEAE4' }}>
         <div className="text-center">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md">
-            <div className="bg-gradient-to-r from-blue-500 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Brain className="h-8 w-8 text-white animate-pulse" />
+          <div className="bg-white rounded-2xl border border-gray-200/60 p-8 max-w-sm">
+            <div className="bg-gray-900 w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-5">
+              <Brain className="h-6 w-6 text-white animate-pulse" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Analyzing Document</h2>
-            <p className="text-gray-600 mb-6">
-              AI is processing "<span className="font-medium">{decodeURIComponent(filename)}</span>" 
-              to provide comprehensive legal analysis...
+            <h2 className="text-base font-semibold text-gray-900 mb-2">Analyzing Document</h2>
+            <p className="text-sm text-gray-500 mb-5">
+              Processing &ldquo;<span className="font-medium text-gray-700 break-all">{decodeURIComponent(filename)}</span>&rdquo;
             </p>
-            <div className="flex items-center justify-center space-x-2">
-              <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-              <span className="text-sm text-gray-500">Please wait...</span>
+            <div className="flex items-center justify-center gap-2 text-gray-400">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span className="text-xs">Please wait...</span>
             </div>
           </div>
         </div>
@@ -194,24 +210,24 @@ const PdfAnalysis = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-red-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#EAEAE4' }}>
         <div className="text-center">
-          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md">
-            <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-6" />
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Analysis Failed</h2>
-            <p className="text-gray-600 mb-6">{error}</p>
-            <div className="flex space-x-4">
+          <div className="bg-white rounded-2xl border border-gray-200/60 p-8 max-w-sm">
+            <AlertCircle className="h-10 w-10 text-red-400 mx-auto mb-4" />
+            <h2 className="text-base font-semibold text-gray-900 mb-2">Analysis Failed</h2>
+            <p className="text-sm text-gray-500 mb-5">{error}</p>
+            <div className="flex gap-2">
               <button
                 onClick={() => navigate(previousPage)}
-                className="flex-1 px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+                className="flex-1 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-50 transition-colors"
               >
                 Go Back
               </button>
               <button
                 onClick={() => analyzeDocument()}
-                className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+                className="flex-1 px-4 py-2 bg-gray-900 text-white rounded-full text-sm font-medium hover:bg-gray-700 transition-colors"
               >
-                Retry Analysis
+                Retry
               </button>
             </div>
           </div>
@@ -221,335 +237,311 @@ const PdfAnalysis = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Professional Header */}
-      <div className="bg-white shadow-xl border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+    <div className="min-h-screen" style={{ backgroundColor: '#EAEAE4' }}>
+      {/* Page Header */}
+      <div className="bg-white/70 backdrop-blur-sm border-b border-gray-200/60">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(previousPage)}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Go Back"
               >
-                <ArrowLeft className="h-5 w-5 text-gray-600" />
+                <ArrowLeft className="h-4 w-4 text-gray-600" />
               </button>
               
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-3 rounded-xl shadow-lg">
-                  <FileText className="h-7 w-7 text-white" />
+              <div className="flex items-center gap-2.5">
+                <div className="bg-gray-900 p-2 rounded-lg">
+                  <FileText className="h-4 w-4 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Document Analysis</h1>
-                  <p className="text-sm text-gray-600 truncate max-w-md">
+                  <h1 className="text-sm font-semibold text-gray-900">Document Analysis</h1>
+                  <p className="text-xs text-gray-500 truncate max-w-xs sm:max-w-sm">
                     {decodeURIComponent(filename)}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2">
               {documentStats && documentStats.pages && documentStats.words && (
-                <div className="hidden md:flex items-center space-x-4 text-sm text-gray-600">
-                  <div className="flex items-center space-x-1">
-                    <BookOpen className="h-4 w-4 text-blue-500" />
-                    <span>{documentStats.pages} pages</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <BarChart3 className="h-4 w-4 text-green-500" />
-                    <span>{documentStats.words} words</span>
-                  </div>
+                <div className="hidden sm:flex items-center gap-3 text-xs text-gray-500 mr-2">
+                  <span>{documentStats.pages} pages</span>
+                  <span>{documentStats.words} words</span>
                 </div>
               )}
               
-              <div className="flex items-center space-x-2">
-                <a
-                  href={getPdfUrl(filename)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center space-x-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors shadow-md"
-                >
-                  <Eye className="h-4 w-4" />
-                  <span className="hidden sm:inline">View PDF</span>
-                </a>
-                
-                <button
-                  onClick={clearChat}
-                  className="flex items-center space-x-2 px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors shadow-md"
-                  title="Reset Chat"
-                >
-                  <Trash2 className="h-4 w-4" />
-                  <span className="hidden sm:inline">Reset</span>
-                </button>
-              </div>
+              <a
+                href={getPdfUrl(filename)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-gray-200 text-gray-700 rounded-full text-xs font-medium hover:border-gray-300 transition-colors"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                <span>View</span>
+              </a>
+              
+              <a
+                href={getPdfUrl(filename)}
+                download={filename}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-900 text-white rounded-full text-xs font-medium hover:bg-gray-700 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" />
+                <span>Download</span>
+              </a>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="flex gap-6" style={{ height: 'calc(100vh - 160px)' }}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
+        <div className="flex gap-4" style={{ height: 'calc(100vh - 56px - 88px - 40px)', minHeight: '500px' }}>
           
           {/* Left Side - Q&A Chat Interface */}
           <div className="flex-1 min-w-0">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 h-full flex flex-col">
+            <div className="bg-white rounded-2xl border border-gray-200/60 h-full flex flex-col overflow-hidden">
               
-              {/* Chat Header - Fixed */}
-              <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center">
-                  <MessageCircle className="h-5 w-5 mr-2 text-blue-500" />
-                  Ask Questions
-                </h2>
-                <p className="text-xs text-gray-600 mt-1">
-                  Ask specific questions about this legal document
-                </p>
+              {/* Chat Header */}
+              <div className="px-4 sm:px-5 py-3.5 border-b border-gray-100 flex-shrink-0 flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-gray-900">Ask Questions</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">Ask about this legal document</p>
+                </div>
+                <button
+                  onClick={clearChat}
+                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-red-500 px-2.5 py-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
 
-              {/* Chat Messages Area - PROPERLY SCROLLABLE */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ height: 'calc(100vh - 350px)', minHeight: '300px' }}>
-                {/* Welcome message with suggested questions */}
+              {/* Chat Messages */}
+              <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-4 space-y-4">
                 {chatHistory.filter(msg => !msg.isAnalysis).length === 0 && (
-                  <div className="mb-6">
-                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-                      <h3 className="text-md font-semibold text-gray-900 mb-3 flex items-center">
-                        <Scale className="h-4 w-4 mr-2 text-blue-500" />
-                        Suggested Questions:
-                      </h3>
-                      <div className="space-y-2">
-                        {suggestedQuestions.map((question, index) => (
-                          <button
-                            key={index}
-                            onClick={() => setQuestion(question)}
-                            className="w-full text-left p-3 rounded-lg border border-blue-200 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 text-xs text-gray-700 hover:text-blue-700"
-                          >
-                            {question}
-                          </button>
-                        ))}
-                      </div>
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                    <p className="text-xs font-medium text-gray-400 mb-3 uppercase tracking-wider">Suggested Questions</p>
+                    <div className="space-y-1.5">
+                      {suggestedQuestions.map((q, index) => (
+                        <button
+                          key={index}
+                          onClick={() => setQuestion(q)}
+                          className="w-full text-left px-3 py-2.5 rounded-lg border border-gray-100 hover:border-gray-200 hover:bg-white transition-all text-xs text-gray-600 hover:text-gray-900"
+                        >
+                          {q}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
 
-                {/* Chat messages excluding analysis */}
-                {chatHistory.filter(msg => !msg.isAnalysis).map((message, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`flex items-start space-x-2 max-w-[80%] ${
-                      message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}>
-                      {/* Avatar */}
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${
-                        message.type === 'user' 
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500' 
-                          : message.isError
-                            ? 'bg-red-500'
-                            : 'bg-gradient-to-r from-purple-500 to-violet-500'
+                {chatHistory.filter(msg => !msg.isAnalysis).map((message) => (
+                  <div key={message.id} className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`flex items-end gap-2 max-w-[85%] ${message.type === 'user' ? 'flex-row-reverse' : ''}`}>
+                      <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        message.type === 'user' ? 'bg-gray-900' : message.isError ? 'bg-red-400' : 'bg-gray-700'
                       }`}>
-                        {message.type === 'user' ? (
-                          <User className="h-4 w-4 text-white" />
-                        ) : (
-                          <Bot className="h-4 w-4 text-white" />
-                        )}
+                        {message.type === 'user' ? <User className="h-3.5 w-3.5 text-white" /> : <Bot className="h-3.5 w-3.5 text-white" />}
                       </div>
-
-                      {/* Message Content */}
                       <div className={`flex flex-col ${message.type === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`rounded-xl px-4 py-3 shadow-sm ${
+                        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                           message.type === 'user'
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
+                            ? 'bg-gray-900 text-white rounded-br-sm'
                             : message.isError
-                              ? 'bg-red-50 border border-red-200 text-red-800'
-                              : 'bg-gray-50 border border-gray-200 text-gray-800'
+                              ? 'bg-red-50 border border-red-100 text-red-800 rounded-bl-sm'
+                              : 'bg-gray-50 border border-gray-100 text-gray-800 rounded-bl-sm'
                         }`}>
-                          <div className="whitespace-pre-wrap leading-relaxed text-sm">
-                            {message.content}
-                          </div>
+                          {message.type === 'user' ? (
+                            <div className="whitespace-pre-wrap">{message.content}</div>
+                          ) : (
+                            <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:font-semibold prose-headings:font-semibold">
+                              <ReactMarkdown>{message.content}</ReactMarkdown>
+                            </div>
+                          )}
                         </div>
-
-                        {/* Timestamp */}
-                        <div className={`text-xs text-gray-500 mt-1 flex items-center space-x-1 ${
-                          message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                        }`}>
-                          <Clock className="h-2.5 w-2.5" />
-                          <span>{formatTimestamp(message.timestamp)}</span>
-                        </div>
+                        <span className="text-xs text-gray-400 mt-1 px-1">{formatTimestamp(message.timestamp)}</span>
                       </div>
                     </div>
                   </div>
                 ))}
 
-                {/* Loading indicator */}
                 {isAsking && (
                   <div className="flex justify-start">
-                    <div className="flex items-start space-x-2">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-purple-500 to-violet-500 flex items-center justify-center shadow-sm">
-                        <Bot className="h-4 w-4 text-white" />
+                    <div className="flex items-end gap-2">
+                      <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center">
+                        <Bot className="h-3.5 w-3.5 text-white" />
                       </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
-                        <div className="flex items-center space-x-2 text-gray-600">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm">Processing your question...</span>
-                        </div>
+                      <div className="bg-gray-50 border border-gray-100 rounded-2xl rounded-bl-sm px-4 py-3 flex items-center gap-2 text-sm text-gray-500">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Processing...</span>
                       </div>
                     </div>
                   </div>
                 )}
-
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Input Area - Fixed at Bottom */}
-              <div className="border-t border-gray-200 p-4 flex-shrink-0">
-                <div className="flex items-end space-x-3">
-                  <div className="flex-1">
-                    <textarea
-                      value={question}
-                      onChange={(e) => setQuestion(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      placeholder="Ask about this document..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 text-sm"
-                      rows="2"
-                      disabled={isAsking}
-                    />
-                  </div>
-                  
+              {/* Input */}
+              <div className="border-t border-gray-100 px-4 sm:px-5 pt-3 pb-4 flex-shrink-0">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Ask about this document..."
+                    className="flex-1 px-4 py-3 text-sm border border-gray-200 rounded-xl focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 resize-none outline-none bg-gray-50 placeholder-gray-400 transition-all"
+                    rows="2"
+                    disabled={isAsking}
+                  />
                   <button
                     onClick={askQuestion}
                     disabled={!question.trim() || isAsking}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 disabled:from-gray-400 disabled:to-gray-400 text-white p-3 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
-                    title="Send Question"
+                    className="flex-shrink-0 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white p-3 rounded-xl transition-colors"
                   >
                     <Send className="h-4 w-4" />
                   </button>
                 </div>
-
-                {/* Legal Disclaimer */}
-                <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-md">
-                  <div className="flex items-start space-x-2">
-                    <AlertCircle className="h-3 w-3 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800">
-                      <strong>Disclaimer:</strong> AI analysis for informational purposes only. Consult legal professionals for advice.
-                    </p>
-                  </div>
-                </div>
+                <p className="text-xs text-gray-400 mt-2">
+                  <strong className="text-amber-600">Disclaimer:</strong> AI analysis for informational purposes only.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Right Side - Document Summary */}
-          <div className="w-96 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 h-full flex flex-col">
-              
-              {/* Summary Header - Fixed */}
-              <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center">
-                  <FileText className="h-5 w-5 mr-2 text-green-500" />
-                  Document Summary
-                </h2>
-                <p className="text-xs text-gray-600 mt-1">
-                  AI-generated analysis of the legal document
-                </p>
-              </div>
+          {/* Right Side - Document Summary (desktop) */}
+          <div className="hidden md:flex w-72 lg:w-80 xl:w-96 flex-shrink-0 flex-col bg-white rounded-2xl border border-gray-200/60 overflow-hidden">
+            <div className="px-4 py-3.5 border-b border-gray-100 flex-shrink-0">
+              <h2 className="text-sm font-semibold text-gray-900">Document Summary</h2>
+              <p className="text-xs text-gray-400 mt-0.5">AI-generated legal analysis</p>
+            </div>
 
-              {/* Summary Content - PROPERLY SCROLLABLE */}
-              <div className="flex-1 overflow-y-auto p-4" style={{ height: 'calc(100vh - 250px)', minHeight: '400px' }}>
-                {analysis && analysis.summary ? (
-                  <div className="space-y-4">
-                    {/* Summary Content */}
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="text-md font-semibold text-gray-900 flex items-center">
-                          <Brain className="h-4 w-4 mr-2 text-green-500" />
-                          Legal Analysis
-                        </h3>
-                        <div className="flex items-center space-x-1 text-green-700">
-                          <CheckCircle className="h-3 w-3" />
-                          <span className="text-xs font-medium">Complete</span>
-                        </div>
-                      </div>
-                      
-                      <div className="text-gray-800">
-                        <div className="whitespace-pre-wrap leading-relaxed text-sm">
-                          {analysis.summary}
-                        </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              {analysis && analysis.summary ? (
+                <>
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                        <Brain className="h-3.5 w-3.5 text-gray-500" />
+                        Legal Analysis
+                      </h3>
+                      <div className="flex items-center gap-1 text-gray-400">
+                        <CheckCircle className="h-3 w-3" />
+                        <span className="text-xs">Complete</span>
                       </div>
                     </div>
+                    <div className="prose prose-xs max-w-none text-xs text-gray-700 leading-relaxed prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:font-semibold">
+                      <ReactMarkdown>{analysis.summary}</ReactMarkdown>
+                    </div>
+                  </div>
 
-                    {/* Additional Analysis Details */}
-                    {analysis.key_points && (
-                      <div className="bg-blue-50 rounded-xl p-4 border border-blue-200">
-                        <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                          <BarChart3 className="h-3 w-3 mr-2 text-blue-500" />
-                          Key Points
-                        </h4>
-                        <ul className="space-y-1 text-xs text-gray-700">
-                          {Array.isArray(analysis.key_points) ? 
-                            analysis.key_points.map((point, index) => (
-                              <li key={index} className="flex items-start space-x-2">
-                                <div className="w-1 h-1 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                                <span>{point}</span>
+                  {analysis.key_points && (
+                    <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                      <h4 className="text-xs font-semibold text-gray-700 mb-2">Key Points</h4>
+                      <ul className="space-y-1.5">
+                        {Array.isArray(analysis.key_points)
+                          ? analysis.key_points.map((point, i) => (
+                              <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                                <div className="w-1 h-1 bg-gray-400 rounded-full mt-1.5 flex-shrink-0" />
+                                {point}
                               </li>
-                            )) :
-                            <li className="text-gray-600">{analysis.key_points}</li>
-                          }
-                        </ul>
-                      </div>
-                    )}
+                            ))
+                          : <li className="text-xs text-gray-600">{analysis.key_points}</li>
+                        }
+                      </ul>
+                    </div>
+                  )}
 
-                    {/* Document Stats */}
-                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                      <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                        <BookOpen className="h-3 w-3 mr-2 text-gray-500" />
-                        Document Information
-                      </h4>
-                      <div className="space-y-2 text-xs">
-                        <div>
-                          <span className="text-gray-600">Filename:</span>
-                          <p className="font-medium text-gray-900 truncate" title={decodeURIComponent(filename)}>
-                            {decodeURIComponent(filename)}
-                          </p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">Analysis Date:</span>
-                          <p className="font-medium text-gray-900">
-                            {new Date().toLocaleDateString()}
-                          </p>
-                        </div>
-                        {documentStats && (
-                          <>
-                            <div>
-                              <span className="text-gray-600">Pages:</span>
-                              <p className="font-medium text-gray-900">{documentStats.pages || 'N/A'}</p>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Words:</span>
-                              <p className="font-medium text-gray-900">{documentStats.words || 'N/A'}</p>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                    <h4 className="text-xs font-semibold text-gray-700 mb-2">Document Info</h4>
+                    <dl className="space-y-1.5 text-xs">
+                      <div><dt className="text-gray-400">File</dt><dd className="font-medium text-gray-800 truncate" title={decodeURIComponent(filename)}>{decodeURIComponent(filename)}</dd></div>
+                      <div><dt className="text-gray-400">Analysed</dt><dd className="font-medium text-gray-800">{new Date().toLocaleDateString()}</dd></div>
+                      {(analysis?.pages || analysis?.page_count || documentStats?.pages) && (
+                        <div><dt className="text-gray-400">Pages</dt><dd className="font-medium text-gray-800">{analysis?.pages || analysis?.page_count || documentStats?.pages}</dd></div>
+                      )}
+                    </dl>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <Brain className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                      <p className="text-gray-600 text-sm mb-3">No analysis available</p>
-                      <button
-                        onClick={analyzeDocument}
-                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
-                      >
-                        Generate Analysis
-                      </button>
-                    </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <Brain className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-xs text-gray-400 mb-3">No analysis available</p>
+                    <button
+                      onClick={analyzeDocument}
+                      className="px-4 py-2 bg-gray-900 text-white rounded-full hover:bg-gray-700 transition-colors text-xs font-medium"
+                    >
+                      Generate Analysis
+                    </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Mobile Summary Accordion — hidden on md+ where the side panel is visible */}
+        {analysis && analysis.summary && (
+          <div className="md:hidden mt-4 bg-white rounded-2xl border border-gray-200/60 overflow-hidden">
+            <button
+              onClick={() => setSummaryOpen(o => !o)}
+              className="w-full flex items-center justify-between px-4 py-3.5 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Brain className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-semibold text-gray-900">Document Summary</span>
+              </div>
+              {summaryOpen ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+            </button>
+
+            {summaryOpen && (
+              <div className="px-4 pb-4 space-y-3 border-t border-gray-100">
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 mt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+                      <Brain className="h-3.5 w-3.5 text-gray-500" />
+                      Legal Analysis
+                    </h3>
+                    <div className="flex items-center gap-1 text-gray-400">
+                      <CheckCircle className="h-3 w-3" />
+                      <span className="text-xs">Complete</span>
+                    </div>
+                  </div>
+                  <div className="prose prose-xs max-w-none text-xs text-gray-700 leading-relaxed prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:font-semibold">
+                    <ReactMarkdown>{analysis.summary}</ReactMarkdown>
+                  </div>
+                </div>
+
+                {analysis.key_points && (
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                    <h4 className="text-xs font-semibold text-gray-700 mb-2">Key Points</h4>
+                    <ul className="space-y-1.5">
+                      {Array.isArray(analysis.key_points)
+                        ? analysis.key_points.map((point, i) => (
+                            <li key={i} className="flex items-start gap-2 text-xs text-gray-600">
+                              <div className="w-1 h-1 bg-gray-400 rounded-full mt-1.5 flex-shrink-0" />
+                              {point}
+                            </li>
+                          ))
+                        : <li className="text-xs text-gray-600">{analysis.key_points}</li>
+                      }
+                    </ul>
+                  </div>
+                )}
+
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-4">
+                  <h4 className="text-xs font-semibold text-gray-700 mb-2">Document Info</h4>
+                  <dl className="space-y-1.5 text-xs">
+                    <div><dt className="text-gray-400">File</dt><dd className="font-medium text-gray-800 break-all">{decodeURIComponent(filename)}</dd></div>
+                    <div><dt className="text-gray-400">Analysed</dt><dd className="font-medium text-gray-800">{new Date().toLocaleDateString()}</dd></div>
+                    {(analysis?.pages || analysis?.page_count || documentStats?.pages) && (
+                      <div><dt className="text-gray-400">Pages</dt><dd className="font-medium text-gray-800">{analysis?.pages || analysis?.page_count || documentStats?.pages}</dd></div>
+                    )}
+                  </dl>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

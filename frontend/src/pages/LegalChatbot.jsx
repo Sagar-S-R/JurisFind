@@ -1,123 +1,89 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { getApiUrl } from '../config/api';
-import { 
-  Send, 
-  MessageCircle, 
-  ArrowLeft, 
-  Trash2, 
-  Scale, 
-  AlertCircle,
+﻿import React, { useState, useEffect, useRef } from "react";
+import axios from "axios";
+import ReactMarkdown from "react-markdown";
+import { getApiUrl } from "../config/api";
+import {
+  Send,
+  Trash2,
+  Scale,
   Loader2,
-  Shield,
-  BookOpen,
-  Gavel,
   User,
   Bot,
-  Clock,
-  CheckCircle
-} from 'lucide-react';
+  Menu,
+  X,
+  ChevronRight,
+} from "lucide-react";
 
 const LegalChatbot = () => {
-  const navigate = useNavigate();
-  const messagesEndRef = useRef(null);
-  
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [chatStats, setChatStats] = useState(null);
-  // Initial welcome message
-  useEffect(() => {
-    setMessages([
-      {
-        type: 'bot',
-        content: "👋 Welcome to your Professional Legal AI Assistant!\n\nI'm specialized in judicial and legal matters. You can:\n• Ask questions about laws and legal procedures\n• Get explanations of legal concepts\n• Learn about court processes and rights\n• Explore different areas of law\n\nSelect a suggested topic from the left panel or type your legal question directly. How can I assist you today?",
-        timestamp: new Date(),
-        isWelcome: true
-      }
-    ]);
-    
-    getChatStats();
-  }, []);
+  const messagesContainerRef = useRef(null);
 
-  const getChatStats = async () => {
-    try {
-      const response = await axios.get(getApiUrl('/api/legal-chat/stats'));
-      setChatStats(response.data);
-    } catch (error) {
-      console.error('Failed to get chat stats:', error);
+  const [messages, setMessages] = useState([]);
+  const [inputMessage, setInputMessage] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  // Scroll the CONTAINER, not the window — avoids page-level scroll caused by footer
+  const scrollToBottom = () => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop =
+        messagesContainerRef.current.scrollHeight;
     }
   };
 
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || isLoading) return;
+  useEffect(() => {
+    if (messages.length > 0 || isLoading) {
+      scrollToBottom();
+    }
+  }, [messages, isLoading]);
 
-    const userMessage = {
-      type: 'user',
-      content: inputMessage,
-      timestamp: new Date()
-    };
+  const sendMessage = async (text) => {
+    const msg = text || inputMessage;
+    if (!msg.trim() || isLoading) return;
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage('');
+    setMessages((prev) => [
+      ...prev,
+      { type: "user", content: msg, timestamp: new Date() },
+    ]);
+    setInputMessage("");
     setIsLoading(true);
+    setSidebarOpen(false);
 
     try {
-      const response = await axios.post(getApiUrl('/api/legal-chat'), {
-        question: inputMessage
+      const response = await axios.post(getApiUrl("/api/legal-chat"), {
+        question: msg,
       });
-      
-      const botMessage = {
-        type: 'bot',
-        content: response.data.response,
-        timestamp: new Date(),
-        isLegal: response.data.is_legal || false
-      };
-
-      setMessages(prev => [...prev, botMessage]);
-      getChatStats();
-    } catch (error) {
-      console.error('Chat error:', error);
-      
-      const errorMessage = {
-        type: 'bot',
-        content: "❌ I apologize, but I'm currently experiencing technical difficulties. Please try again in a moment.",
-        timestamp: new Date(),
-        isError: true
-      };
-
-      setMessages(prev => [...prev, errorMessage]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "bot",
+          content: response.data.response,
+          timestamp: new Date(),
+          isLegal: response.data.is_legal || false,
+        },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "bot",
+          content: "I am experiencing technical difficulties. Please try again.",
+          timestamp: new Date(),
+          isError: true,
+        },
+      ]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleKeyPress = (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
-  };
+  const clearChat = () => setMessages([]);
 
-  const clearChat = () => {
-    setMessages([
-      {
-        type: 'bot',
-        content: "👋 Chat cleared! How can I assist you with your legal questions today?",
-        timestamp: new Date(),
-        isWelcome: true
-      }
-    ]);
-  };
-
-  const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
+  const formatTimestamp = (ts) =>
+    new Date(ts).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
     });
-  };
 
   const suggestedQuestions = [
     "What is the difference between civil and criminal law?",
@@ -125,259 +91,220 @@ const LegalChatbot = () => {
     "What are the basic constitutional rights?",
     "How does the appeals process work?",
     "What is the statute of limitations?",
-    "Explain contract law basics"
+    "Explain contract law basics",
+    "What is habeas corpus?",
+    "How does bail work in criminal cases?",
+  ];
+
+  const legalAreas = [
+    "Constitutional Law",
+    "Criminal Law",
+    "Civil Rights",
+    "Contract Law",
+    "Family Law",
+    "Property Law",
+    "Employment Law",
+    "Corporate Law",
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Professional Header */}
-      <div className="bg-white shadow-xl border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Back to Search"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-600" />
-              </button>
-              
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-green-500 to-emerald-500 p-3 rounded-xl shadow-lg">
-                  <MessageCircle className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Legal AI Assistant</h1>
-                  <p className="text-sm text-gray-600">Professional Legal Consultation</p>
-                </div>
-              </div>
-            </div>
+    <div
+      className="flex overflow-hidden"
+      style={{ height: "calc(100vh - 56px)", backgroundColor: "#EAEAE4" }}
+    >
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-20 bg-black/20 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-            <div className="flex items-center space-x-4">
-              {/* Removed the query count display */}
-              
+      {/* Sidebar - light theme */}
+      <aside
+        className={`fixed lg:relative inset-y-0 left-0 z-30 flex flex-col w-64 xl:w-72 flex-shrink-0 bg-white border-r border-gray-200/60 transition-transform duration-300 ease-in-out ${sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}
+        style={{ top: 0, height: "100%" }}
+      >
+        <div className="flex items-center justify-between px-4 py-3.5 border-b border-gray-100 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="bg-gray-900 p-1.5 rounded-lg">
+              <Scale className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="text-sm font-semibold text-gray-900">JurisFind</span>
+          </div>
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="lg:hidden p-1 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-3 py-4">
+          <p className="text-xs font-medium text-gray-400 uppercase tracking-wider px-2 mb-2">
+            Suggested Questions
+          </p>
+          <div className="space-y-0.5">
+            {suggestedQuestions.map((q, i) => (
               <button
-                onClick={clearChat}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow-md hover:shadow-lg"
-                title="Clear Chat History"
+                key={i}
+                onClick={() => sendMessage(q)}
+                className="w-full text-left px-3 py-2.5 rounded-xl text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-150 flex items-start gap-2 group"
               >
-                <Trash2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Clear Chat</span>
+                <ChevronRight className="h-3 w-3 text-gray-300 group-hover:text-gray-500 flex-shrink-0 mt-0.5" />
+                <span className="line-clamp-2 leading-relaxed">{q}</span>
               </button>
+            ))}
+          </div>
+          <div className="mt-5">
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider px-2 mb-2">
+              Legal Areas
+            </p>
+            <div className="space-y-0.5">
+              {legalAreas.map((area) => (
+                <button
+                  key={area}
+                  onClick={() => sendMessage(`Tell me about ${area.toLowerCase()}`)}
+                  className="w-full text-left px-3 py-2 rounded-xl text-xs text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-all duration-150"
+                >
+                  {area}
+                </button>
+              ))}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="flex gap-6" style={{ height: 'calc(100vh - 160px)' }}>
-          
-          {/* Left Side - Fixed Suggested Questions Panel */}
-          <div className="w-80 flex-shrink-0">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 h-full flex flex-col">
-              
-              {/* Left Panel Header */}
-              <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                <h2 className="text-lg font-bold text-gray-900 flex items-center">
-                  <Gavel className="h-5 w-5 mr-2 text-blue-500" />
-                  Legal Topics
-                </h2>
-                <p className="text-xs text-gray-600 mt-1">
-                  Click on any topic to start your inquiry
-                </p>
-              </div>
-
-              {/* Left Panel Content - Scrollable */}
-              <div className="flex-1 overflow-y-auto p-4">
-                <div className="space-y-2">
-                  {suggestedQuestions.map((question, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setInputMessage(question)}
-                      className="w-full text-left p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-all duration-200 text-xs text-gray-700 hover:text-blue-700 shadow-sm hover:shadow-md group"
-                    >
-                      <div className="flex items-start space-x-2">
-                        <div className="bg-blue-100 group-hover:bg-blue-200 p-1 rounded-full mt-0.5 transition-colors">
-                          <Scale className="h-2.5 w-2.5 text-blue-600" />
-                        </div>
-                        <span className="leading-relaxed text-xs">{question}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                
-                {/* Additional Legal Categories */}
-                <div className="mt-6 pt-4 border-t border-gray-200">
-                  <h3 className="text-sm font-semibold text-gray-800 mb-3 flex items-center">
-                    <BookOpen className="h-3 w-3 mr-1 text-green-500" />
-                    Legal Areas
-                  </h3>
-                  <div className="space-y-1">
-                    {[
-                      "Constitutional Law",
-                      "Criminal Law Procedures", 
-                      "Civil Rights & Liberties",
-                      "Contract Law Basics",
-                      "Family Law Matters",
-                      "Property Law",
-                      "Employment Law",
-                      "Corporate Law"
-                    ].map((area, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setInputMessage(`Tell me about ${area.toLowerCase()}`)}
-                        className="w-full text-left px-3 py-2 rounded-md bg-gray-50 hover:bg-green-50 border border-gray-100 hover:border-green-300 transition-all duration-200 text-xs text-gray-600 hover:text-green-700"
-                      >
-                        {area}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
+        {messages.length > 0 && (
+          <div className="px-4 py-3 border-t border-gray-100 flex-shrink-0">
+            <button
+              onClick={clearChat}
+              className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all duration-150"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span>Clear conversation</span>
+            </button>
           </div>
+        )}
+      </aside>
 
-          {/* Right Side - Fixed Chat Interface */}
-          <div className="flex-1 min-w-0">
-            <div className="bg-white rounded-2xl shadow-xl border border-gray-100 h-full flex flex-col">
-              
-              {/* Chat Header - Fixed */}
-              <div className="p-4 border-b border-gray-200 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold text-gray-900 flex items-center">
-                      <MessageCircle className="h-5 w-5 mr-2 text-green-500" />
-                      Legal AI Assistant
-                    </h2>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Ask me any legal question and get professional guidance
-                    </p>
-                  </div>
-                  
-                  {/* Removed the message count and second clear button */}
-                </div>
-              </div>
+      {/* Main area */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Top bar */}
+        <div
+          className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-gray-200/60 flex-shrink-0"
+          style={{ backgroundColor: "#EAEAE4" }}
+        >
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="lg:hidden p-2 rounded-xl text-gray-600 hover:bg-gray-200/60 transition-colors"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex-1 px-3 lg:px-0">
+            <h1 className="text-sm font-semibold text-gray-900">Legal AI Assistant</h1>
+            <p className="text-xs text-gray-400">Ask any legal question</p>
+          </div>
+          {messages.length > 0 && (
+            <button
+              onClick={clearChat}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 px-3 py-1.5 rounded-lg hover:bg-red-50 border border-gray-200/60 hover:border-red-100 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Clear</span>
+            </button>
+          )}
+        </div>
 
-              {/* Chat Messages Area - PROPER SCROLLABLE HEIGHT */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ height: 'calc(100vh - 400px)', minHeight: '400px' }}>
-                {messages.map((message, index) => (
+        {/* Messages */}
+        <div ref={messagesContainerRef} className="flex-1 overflow-y-auto">
+          <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+              {messages.map((message, index) => (
+                <div
+                  key={index}
+                  className={`flex ${message.type === "user" ? "justify-end" : "justify-start"}`}
+                >
                   <div
-                    key={index}
-                    className={`flex ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}
+                    className={`flex items-end gap-2.5 max-w-[85%] sm:max-w-[75%] ${message.type === "user" ? "flex-row-reverse" : ""}`}
                   >
-                    <div className={`flex items-start space-x-2 max-w-[80%] ${
-                      message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                    }`}>
-                      {/* Avatar */}
-                      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm ${
-                        message.type === 'user' 
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500' 
-                          : message.isError
-                            ? 'bg-red-500'
-                            : 'bg-gradient-to-r from-green-500 to-emerald-500'
-                      }`}>
-                        {message.type === 'user' ? (
-                          <User className="h-4 w-4 text-white" />
+                    <div
+                      className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${message.type === "user" ? "bg-gray-900" : message.isError ? "bg-red-400" : "bg-gray-700"}`}
+                    >
+                      {message.type === "user" ? (
+                        <User className="h-3.5 w-3.5 text-white" />
+                      ) : (
+                        <Bot className="h-3.5 w-3.5 text-white" />
+                      )}
+                    </div>
+                    <div className={`flex flex-col ${message.type === "user" ? "items-end" : "items-start"}`}>
+                      <div
+                        className={`rounded-2xl px-4 py-3 text-sm leading-relaxed ${message.type === "user" ? "bg-gray-900 text-white rounded-br-sm" : message.isError ? "bg-red-50 border border-red-100 text-red-800 rounded-bl-sm" : "bg-white border border-gray-200/60 text-gray-800 rounded-bl-sm shadow-sm"}`}
+                      >
+                        {message.type === "user" ? (
+                          <div className="whitespace-pre-wrap">{message.content}</div>
                         ) : (
-                          <Bot className="h-4 w-4 text-white" />
+                          <div className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:font-semibold">
+                            <ReactMarkdown>{message.content}</ReactMarkdown>
+                          </div>
                         )}
                       </div>
+                      <span className="text-xs text-gray-400 mt-1 px-1">
+                        {formatTimestamp(message.timestamp)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
 
-                      {/* Message Content */}
-                      <div className={`flex flex-col ${message.type === 'user' ? 'items-end' : 'items-start'}`}>
-                        <div className={`rounded-xl px-4 py-3 shadow-sm ${
-                          message.type === 'user'
-                            ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white'
-                            : message.isError
-                              ? 'bg-red-50 border border-red-200 text-red-800'
-                              : message.isWelcome
-                                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 text-gray-800'
-                                : 'bg-gray-50 border border-gray-200 text-gray-800'
-                        }`}>
-                          <div className="whitespace-pre-wrap leading-relaxed text-sm">
-                            {message.content}
-                          </div>
-                          
-                          {message.isLegal && message.type === 'bot' && (
-                            <div className="mt-2 pt-2 border-t border-green-300">
-                              <div className="flex items-center space-x-1 text-green-700">
-                                <Scale className="h-3 w-3" />
-                                <span className="text-xs font-medium">Legal Query Verified</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Timestamp */}
-                        <div className={`text-xs text-gray-500 mt-1 flex items-center space-x-1 ${
-                          message.type === 'user' ? 'flex-row-reverse space-x-reverse' : ''
-                        }`}>
-                          <Clock className="h-2.5 w-2.5" />
-                          <span>{formatTimestamp(message.timestamp)}</span>
-                        </div>
+              {isLoading && (
+                <div className="flex justify-start">
+                  <div className="flex items-end gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-gray-700 flex items-center justify-center">
+                      <Bot className="h-3.5 w-3.5 text-white" />
+                    </div>
+                    <div className="bg-white border border-gray-200/60 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                      <div className="flex items-center gap-2 text-gray-400 text-sm">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Analyzing your question...</span>
                       </div>
                     </div>
                   </div>
-                ))}
-
-                {/* Loading indicator */}
-                {isLoading && (
-                  <div className="flex justify-start">
-                    <div className="flex items-start space-x-2">
-                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-r from-green-500 to-emerald-500 flex items-center justify-center shadow-sm">
-                        <Bot className="h-4 w-4 text-white" />
-                      </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 shadow-sm">
-                        <div className="flex items-center space-x-2 text-gray-600">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span className="text-sm">Analyzing your legal question...</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Input Area - Fixed at Bottom */}
-              <div className="border-t border-gray-200 p-4 flex-shrink-0">
-                <div className="flex items-end space-x-3">
-                  <div className="flex-1">
-                    <textarea
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyDown={handleKeyPress}
-                      placeholder="Ask your legal question here... (Press Enter to send)"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all duration-200 text-sm shadow-sm"
-                      rows="3"
-                      disabled={isLoading}
-                    />
-                  </div>
-                  
-                  <button
-                    onClick={sendMessage}
-                    disabled={!inputMessage.trim() || isLoading}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 disabled:from-gray-400 disabled:to-gray-400 text-white p-3 rounded-lg transition-all duration-200 shadow-md hover:shadow-lg transform hover:scale-105 disabled:transform-none disabled:cursor-not-allowed"
-                    title="Send Message"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
                 </div>
-
-                {/* Legal Disclaimer */}
-                <div className="mt-3 p-2 bg-amber-50 border border-amber-200 rounded-md">
-                  <div className="flex items-start space-x-2">
-                    <AlertCircle className="h-3 w-3 text-amber-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-xs text-amber-800 leading-relaxed">
-                      <strong>Disclaimer:</strong> This AI provides general legal information for educational purposes only. 
-                      Consult qualified attorneys for specific legal advice.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              )}
             </div>
+        </div>
+
+        {/* Input */}
+        <div
+          className="border-t border-gray-200/60 px-4 sm:px-6 pt-3 pb-4 flex-shrink-0"
+          style={{ backgroundColor: "#EAEAE4" }}
+        >
+          <div className="max-w-3xl mx-auto">
+            <div className="relative bg-white rounded-2xl border border-gray-200/60 shadow-sm">
+              <textarea
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                  }
+                }}
+                placeholder="Ask your legal question... (Enter to send)"
+                className="w-full px-4 pt-3.5 pb-10 text-sm text-gray-800 placeholder-gray-400 resize-none outline-none bg-transparent rounded-2xl"
+                rows="2"
+                disabled={isLoading}
+              />
+              <button
+                onClick={() => sendMessage()}
+                disabled={!inputMessage.trim() || isLoading}
+                className="absolute bottom-3 right-3 bg-gray-900 hover:bg-gray-700 disabled:bg-gray-200 disabled:cursor-not-allowed text-white p-2 rounded-xl transition-colors"
+              >
+                <Send className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              <strong className="text-amber-600">Disclaimer:</strong>{" "}
+              General legal information only. Consult a qualified attorney for specific advice.
+            </p>
           </div>
         </div>
       </div>

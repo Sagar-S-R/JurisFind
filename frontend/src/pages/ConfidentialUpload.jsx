@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { getApiUrl, getPdfUrl } from '../config/api';
@@ -17,23 +18,65 @@ import {
   Lock,
   Globe,
   Database,
-  Brain
+  Brain,
+  Trash2,
+  X,
+  ArrowDown
 } from 'lucide-react';
 
 const ConfidentialUpload = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   
-  const [uploadedFile, setUploadedFile] = useState(null);
+  const SESSION_KEY = 'confidential_upload_state';
+
+  // Restore state from sessionStorage on mount (user navigated back)
+  const restoreSession = () => {
+    try {
+      const saved = sessionStorage.getItem(SESSION_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return null;
+  };
+
+  const saved = restoreSession();
+
+  const [uploadedFile, setUploadedFile] = useState(saved?.uploadedFile || null);
   const [uploading, setUploading] = useState(false);
   const [retrieving, setRetrieving] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [similarCases, setSimilarCases] = useState([]);
-  const [analysis, setAnalysis] = useState(null);
+  const [similarCases, setSimilarCases] = useState(saved?.similarCases || []);
+  const [analysis, setAnalysis] = useState(saved?.analysis || null);
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState('');
+  const [answer, setAnswer] = useState(saved?.answer || '');
   const [isAsking, setIsAsking] = useState(false);
-  const [hasTriedRetrieve, setHasTriedRetrieve] = useState(false);
+  const [hasTriedRetrieve, setHasTriedRetrieve] = useState(saved?.hasTriedRetrieve || false);
+  const [showToast, setShowToast] = useState(false);
+
+  const clearSession = () => {
+    sessionStorage.removeItem(SESSION_KEY);
+    setUploadedFile(null);
+    setSimilarCases([]);
+    setAnalysis(null);
+    setAnswer('');
+    setQuestion('');
+    setHasTriedRetrieve(false);
+    setShowToast(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Persist relevant state to sessionStorage whenever it changes
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({
+        uploadedFile,
+        similarCases,
+        analysis,
+        answer,
+        hasTriedRetrieve
+      }));
+    } catch { /* ignore */ }
+  }, [uploadedFile, similarCases, analysis, answer, hasTriedRetrieve]);
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
@@ -69,6 +112,8 @@ const ConfidentialUpload = () => {
       });
 
       if (response.data.success) {
+        // Clear sessionStorage so old state doesn't bleed into new upload
+        sessionStorage.removeItem(SESSION_KEY);
         setUploadedFile({
           name: file.name,
           size: file.size
@@ -136,14 +181,20 @@ const ConfidentialUpload = () => {
       setAnalyzing(true);
       console.log('Analyzing document:', uploadedFile.name);
       
-      // Use POST request with query parameter as expected by the backend
-      const response = await axios.post(getApiUrl(`/api/analyze-confidential-pdf?filename=${encodeURIComponent(uploadedFile.name)}`));
+      // Use unified endpoint
+      const response = await axios.post(getApiUrl('/api/unified/analyze'), {
+        filename: uploadedFile.name,
+        source: 'uploaded'
+      });
       
       console.log('Analysis response:', response.data);
 
       if (response.data.success) {
         const analysisText = response.data.summary || response.data.analysis || 'Analysis completed successfully.';
         setAnalysis(analysisText);
+        // Show scroll-hint toast
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
         console.log('Analysis completed successfully');
       } else {
         console.error('Analysis failed:', response.data);
@@ -163,9 +214,11 @@ const ConfidentialUpload = () => {
 
     try {
       setIsAsking(true);
-      const response = await axios.post(getApiUrl('/api/ask-question-confidential'), {
+      // Use unified endpoint
+      const response = await axios.post(getApiUrl('/api/unified/ask'), {
         filename: uploadedFile.name,
-        question: question.trim()
+        question: question.trim(),
+        source: 'uploaded'
       });
 
       if (response.data.success) {
@@ -217,59 +270,55 @@ const ConfidentialUpload = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-purple-50">
-      {/* Professional Header */}
-      <div className="bg-white shadow-xl border-b border-gray-100">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Back to Search"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-600" />
-              </button>
-              
-              <div className="flex items-center space-x-3">
-                <div className="bg-gradient-to-r from-purple-500 to-violet-500 p-3 rounded-xl shadow-lg">
-                  <Shield className="h-7 w-7 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Private Case Analysis</h1>
-                  <p className="text-sm text-gray-600">Confidential Document Processing</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen" style={{ backgroundColor: '#EAEAE4' }}>
 
-            <div className="flex items-center space-x-2">
-              <div className="hidden md:flex items-center space-x-2 px-3 py-2 bg-green-50 border border-green-200 rounded-lg">
-                <Lock className="h-4 w-4 text-green-600" />
-                <span className="text-sm font-medium text-green-700">Secure Environment</span>
-              </div>
+      {/* Scroll-hint Toast */}
+      {showToast && (
+        <div className="fixed bottom-5 left-4 right-4 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 flex items-center gap-2.5 bg-gray-900 text-white text-xs sm:text-sm font-medium px-4 py-2.5 rounded-2xl shadow-lg max-w-sm mx-auto sm:mx-0 sm:w-max">
+          <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
+          <span className="flex-1">Summary ready &mdash; scroll down to view</span>
+          <ArrowDown className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+          <button onClick={() => setShowToast(false)} className="ml-1 text-gray-400 hover:text-white transition-colors flex-shrink-0">
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+      {/* Page Header */}
+      <div className="bg-white/70 backdrop-blur-sm border-b border-gray-200/60">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-serif-display text-2xl sm:text-3xl text-gray-900" style={{ letterSpacing: '-0.01em' }}>
+                Private Case Analysis
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">Confidential document processing</p>
+            </div>
+            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-gray-200 rounded-full">
+              <Lock className="h-3.5 w-3.5 text-gray-600" />
+              <span className="text-xs font-medium text-gray-600">Secure</span>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {/* Security Features Banner */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 mb-8">
-          <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center">
-            <Shield className="h-6 w-6 mr-2 text-purple-500" />
-            Your Privacy & Security First
+        <div className="bg-white/70 rounded-2xl border border-gray-200/60 p-5 sm:p-6 mb-5">
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
+            <Shield className="h-4 w-4 text-gray-600" />
+            Privacy & Security
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {securityFeatures.map((feature, index) => {
               const IconComponent = feature.icon;
               return (
-                <div key={index} className="flex items-start space-x-3">
-                  <div className="bg-purple-100 p-2 rounded-lg">
-                    <IconComponent className="h-5 w-5 text-purple-600" />
+                <div key={index} className="flex items-start gap-3">
+                  <div className="bg-gray-100 p-2 rounded-lg flex-shrink-0">
+                    <IconComponent className="h-4 w-4 text-gray-600" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900 mb-1">{feature.title}</h3>
-                    <p className="text-sm text-gray-600">{feature.description}</p>
+                    <h3 className="text-xs font-semibold text-gray-900 mb-0.5">{feature.title}</h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">{feature.description}</p>
                   </div>
                 </div>
               );
@@ -278,15 +327,28 @@ const ConfidentialUpload = () => {
         </div>
 
         {/* Upload Section */}
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-8">
-          <div className="p-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-              <Upload className="h-6 w-6 mr-2 text-blue-500" />
-              Upload Confidential Document
-            </h2>
+        <div className="bg-white rounded-2xl border border-gray-200/60 mb-5">
+          <div className="p-5 sm:p-6">
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+                <Upload className="h-4 w-4 text-gray-600" />
+                Upload Confidential Document
+              </h2>
+              {/* Delete session button — appears here once file is uploaded */}
+              {uploadedFile && (
+                <button
+                  onClick={clearSession}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-full text-xs font-medium transition-colors flex-shrink-0"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Delete Session</span>
+                  <span className="sm:hidden">Delete</span>
+                </button>
+              )}
+            </div>
 
             {!uploadedFile ? (
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center hover:border-purple-400 transition-colors">
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-10 sm:p-12 text-center hover:border-gray-300 transition-colors">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -296,32 +358,32 @@ const ConfidentialUpload = () => {
                 />
                 
                 <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-purple-500 to-violet-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto">
-                    <FileText className="h-8 w-8 text-white" />
+                  <div className="bg-gray-900 w-14 h-14 rounded-2xl flex items-center justify-center mx-auto">
+                    <FileText className="h-7 w-7 text-white" />
                   </div>
                   
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-1">
                       Drop your PDF here or click to browse
                     </h3>
-                    <p className="text-gray-600 mb-4">
-                      Maximum file size: 10MB. Only PDF files are supported.
+                    <p className="text-xs text-gray-500">
+                      Maximum 10MB · PDF files only
                     </p>
                   </div>
 
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
-                    className="bg-gradient-to-r from-purple-500 to-violet-500 hover:from-purple-600 hover:to-violet-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-8 py-3 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 disabled:transform-none flex items-center space-x-2"
+                    className="bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 text-white px-6 py-2.5 rounded-full text-sm font-medium transition-colors inline-flex items-center gap-2"
                   >
                     {uploading ? (
                       <>
-                        <Loader2 className="h-5 w-5 animate-spin" />
+                        <Loader2 className="h-4 w-4 animate-spin" />
                         <span>Uploading...</span>
                       </>
                     ) : (
                       <>
-                        <Upload className="h-5 w-5" />
+                        <Upload className="h-4 w-4" />
                         <span>Select PDF File</span>
                       </>
                     )}
@@ -329,20 +391,17 @@ const ConfidentialUpload = () => {
                 </div>
               </div>
             ) : (
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="bg-green-500 p-3 rounded-lg">
-                      <CheckCircle className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-gray-900">{uploadedFile.name}</h3>
-                      <p className="text-sm text-gray-600">
-                        Size: {formatFileSize(uploadedFile.size)} • Uploaded successfully
-                      </p>
-                    </div>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-gray-900 p-2.5 rounded-lg flex-shrink-0">
+                    <CheckCircle className="h-5 w-5 text-white" />
                   </div>
-                  
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-semibold text-gray-900 truncate" title={uploadedFile.name}>{uploadedFile.name}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {formatFileSize(uploadedFile.size)} &middot; Uploaded successfully
+                    </p>
+                  </div>
                   <button
                     onClick={() => {
                       setUploadedFile(null);
@@ -351,11 +410,12 @@ const ConfidentialUpload = () => {
                       setAnswer('');
                       setQuestion('');
                       setHasTriedRetrieve(false);
-                      fileInputRef.current.value = '';
+                      if (fileInputRef.current) fileInputRef.current.value = '';
                     }}
-                    className="text-red-600 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Change file"
+                    className="text-gray-400 hover:text-gray-600 p-1.5 hover:bg-gray-200 rounded-lg transition-colors flex-shrink-0"
                   >
-                    <AlertCircle className="h-5 w-5" />
+                    <X className="h-4 w-4" />
                   </button>
                 </div>
               </div>
@@ -365,66 +425,54 @@ const ConfidentialUpload = () => {
 
         {/* Analysis Options */}
         {uploadedFile && (
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-8">
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                <Brain className="h-6 w-6 mr-2 text-indigo-500" />
+          <div className="bg-white rounded-2xl border border-gray-200/60 mb-5">
+            <div className="p-5 sm:p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                <Brain className="h-4 w-4 text-gray-600" />
                 Analysis Options
               </h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* Retrieve Similar Cases */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <Search className="h-6 w-6 text-blue-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">Find Similar Cases</h3>
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Search className="h-4 w-4 text-gray-600" />
+                    <h3 className="text-sm font-semibold text-gray-900">Find Similar Cases</h3>
                   </div>
-                  <p className="text-gray-600 mb-4">
-                    Search our database for cases similar to your uploaded document based on content analysis.
+                  <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                    Search our database for cases similar to your uploaded document.
                   </p>
                   <button
                     onClick={retrieveSimilarCases}
                     disabled={retrieving}
-                    className="w-full bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 disabled:from-gray-400 disabled:to-gray-400 text-white py-3 rounded-lg font-semibold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
+                    className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 text-white py-2.5 rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2"
                   >
                     {retrieving ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Searching...</span>
-                      </>
+                      <><Loader2 className="h-4 w-4 animate-spin" /><span>Searching...</span></>
                     ) : (
-                      <>
-                        <Search className="h-4 w-4" />
-                        <span>Retrieve Similar Cases</span>
-                      </>
+                      <><Search className="h-4 w-4" /><span>Find Similar Cases</span></>
                     )}
                   </button>
                 </div>
 
                 {/* Document Analysis */}
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
-                  <div className="flex items-center space-x-3 mb-4">
-                    <MessageCircle className="h-6 w-6 text-green-500" />
-                    <h3 className="text-lg font-semibold text-gray-900">Analyze & Chat</h3>
+                <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <MessageCircle className="h-4 w-4 text-gray-600" />
+                    <h3 className="text-sm font-semibold text-gray-900">Analyze & Chat</h3>
                   </div>
-                  <p className="text-gray-600 mb-4">
-                    Get an AI-powered summary and ask specific questions about your document.
+                  <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+                    Get an AI-powered summary and ask specific questions about this document.
                   </p>
                   <button
                     onClick={analyzeDocument}
                     disabled={analyzing}
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 disabled:from-gray-400 disabled:to-gray-400 text-white py-3 rounded-lg font-semibold transition-all duration-200 shadow-md hover:shadow-lg flex items-center justify-center space-x-2"
+                    className="w-full bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 text-white py-2.5 rounded-full text-sm font-medium transition-colors flex items-center justify-center gap-2"
                   >
                     {analyzing ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Analyzing...</span>
-                      </>
+                      <><Loader2 className="h-4 w-4 animate-spin" /><span>Analyzing...</span></>
                     ) : (
-                      <>
-                        <MessageCircle className="h-4 w-4" />
-                        <span>Summarize & Q&A</span>
-                      </>
+                      <><MessageCircle className="h-4 w-4" /><span>Summarize & Q&A</span></>
                     )}
                   </button>
                 </div>
@@ -435,51 +483,59 @@ const ConfidentialUpload = () => {
 
         {/* Similar Cases Results */}
         {similarCases.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-8">
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                <Database className="h-6 w-6 mr-2 text-blue-500" />
+          <div className="bg-white rounded-2xl border border-gray-200/60 mb-5">
+            <div className="p-5 sm:p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-5 flex items-center gap-2">
+                <Database className="h-4 w-4 text-gray-600" />
                 Similar Cases Found ({similarCases.length})
               </h2>
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {similarCases.map((caseItem, index) => (
-                  <div key={index} className="border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <FileText className="h-5 w-5 text-blue-500" />
-                          <h3 className="font-semibold text-gray-900">{caseItem.filename || caseItem.name || 'Unknown Document'}</h3>
-                          <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
-                            {((caseItem.score || caseItem.similarity || 0) * 100).toFixed(1)}% match
-                          </span>
-                        </div>
+                  <div key={index} className="border border-gray-200/60 rounded-xl p-4 sm:p-5 hover:border-gray-300 transition-colors">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">
+                          {caseItem.title || (caseItem.filename || caseItem.name
+                            ? (caseItem.filename || caseItem.name)
+                                .replace(/\.pdf$/i, '')
+                                .replace(/__+/g, ' \u2014 ')
+                                .replace(/[_]+/g, ' ')
+                                .trim()
+                            : 'Unknown Document')}
+                        </h3>
                       </div>
+                      <span className="self-start sm:self-auto px-2.5 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium whitespace-nowrap">
+                        {((caseItem.score || caseItem.similarity || 0) * 100).toFixed(1)}% match
+                      </span>
                     </div>
                     
-                    <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                      <p className="text-gray-700 leading-relaxed text-sm">
-                        {(caseItem.content || caseItem.text || 'No preview available').substring(0, 300)}
-                        {(caseItem.content || caseItem.text || '').length > 300 ? '...' : ''}
-                      </p>
-                    </div>
+                    <p className="text-xs text-gray-500 leading-relaxed mb-4 line-clamp-2">
+                      {caseItem.content || caseItem.text || 'Legal case document available for analysis.'}
+                    </p>
                     
-                    <div className="flex items-center space-x-3">
+                    <div className="flex flex-wrap gap-2">
                       <button
-                        onClick={() => navigate(`/analyze/${encodeURIComponent(caseItem.filename || caseItem.name || '')}`, {
-                          state: { from: '/confidential-upload' }
-                        })}
-                        className="flex items-center space-x-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors text-sm"
+                        onClick={() => navigate(`/analyze/${encodeURIComponent(caseItem.filename || caseItem.name || '')}`, { state: { from: '/confidential-upload' } })}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-gray-900 hover:bg-gray-700 text-white rounded-full text-xs font-medium transition-colors"
                       >
-                        <Brain className="h-4 w-4" />
+                        <Brain className="h-3.5 w-3.5" />
                         <span>Analyze</span>
+                      </button>
+                      <button
+                        onClick={() => window.open(getPdfUrl(caseItem.filename || caseItem.name || ''), '_blank')}
+                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 rounded-full text-xs font-medium transition-colors"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>View</span>
                       </button>
                       <a
                         href={getPdfUrl(caseItem.filename || caseItem.name || '')}
                         download
-                        className="flex items-center space-x-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:border-gray-300 text-gray-700 rounded-full text-xs font-medium transition-colors"
                       >
-                        <Download className="h-4 w-4" />
+                        <Download className="h-3.5 w-3.5" />
                         <span>Download</span>
                       </a>
                     </div>
@@ -492,18 +548,18 @@ const ConfidentialUpload = () => {
 
         {/* No Similar Cases Found Message */}
         {!retrieving && hasTriedRetrieve && similarCases.length === 0 && uploadedFile && (
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-8">
+          <div className="bg-white rounded-2xl border border-gray-200/60 mb-5">
             <div className="p-8 text-center">
-              <div className="bg-gray-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Search className="h-8 w-8 text-gray-500" />
+              <div className="bg-gray-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-3">
+                <Search className="h-5 w-5 text-gray-500" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">No Similar Cases Found</h3>
-              <p className="text-gray-600 mb-4">
-                We couldn't find any similar cases in our database for your uploaded document.
+              <h3 className="text-sm font-semibold text-gray-900 mb-1">No Similar Cases Found</h3>
+              <p className="text-xs text-gray-500 mb-4">
+                We couldn't find similar cases for your document.
               </p>
               <button
                 onClick={retrieveSimilarCases}
-                className="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition-colors"
+                className="bg-gray-900 hover:bg-gray-700 text-white px-5 py-2 rounded-full text-sm font-medium transition-colors"
               >
                 Try Again
               </button>
@@ -513,60 +569,50 @@ const ConfidentialUpload = () => {
 
         {/* Document Analysis Results */}
         {analysis && (
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 mb-8">
-            <div className="p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                <Brain className="h-6 w-6 mr-2 text-green-500" />
+          <div className="bg-white rounded-2xl border border-gray-200/60 mb-5">
+            <div className="p-5 sm:p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Brain className="h-4 w-4 text-gray-600" />
                 Document Analysis
               </h2>
               
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6 mb-6">
-                <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
-                  {analysis}
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-5 mb-5">
+                <div className="prose prose-sm max-w-none text-gray-700 prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:font-semibold">
+                  <ReactMarkdown>{analysis}</ReactMarkdown>
                 </div>
               </div>
 
               {/* Q&A Section */}
-              <div className="border-t pt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <MessageCircle className="h-5 w-5 mr-2 text-blue-500" />
-                  Ask Questions About This Document
+              <div className="border-t border-gray-100 pt-5">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4 text-gray-600" />
+                  Ask Questions
                 </h3>
                 
-                <div className="flex space-x-4 mb-4">
+                <div className="flex gap-2 mb-3">
                   <input
                     type="text"
                     value={question}
                     onChange={(e) => setQuestion(e.target.value)}
                     onKeyPress={handleKeyPress}
                     placeholder="Ask a specific question about this document..."
-                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    className="flex-1 px-4 py-2.5 text-sm border border-gray-200 rounded-xl bg-gray-50 focus:ring-2 focus:ring-gray-900/10 focus:border-gray-300 outline-none transition-all"
                     disabled={isAsking}
                   />
                   <button
                     onClick={askQuestion}
                     disabled={!question.trim() || isAsking}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 disabled:from-gray-400 disabled:to-gray-400 text-white px-6 py-3 rounded-lg font-medium transition-all duration-200 shadow-md hover:shadow-lg flex items-center space-x-2"
+                    className="bg-gray-900 hover:bg-gray-700 disabled:bg-gray-300 text-white px-5 py-2.5 rounded-xl text-sm font-medium transition-colors flex items-center gap-2 whitespace-nowrap"
                   >
-                    {isAsking ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Asking...</span>
-                      </>
-                    ) : (
-                      <>
-                        <MessageCircle className="h-4 w-4" />
-                        <span>Ask</span>
-                      </>
-                    )}
+                    {isAsking ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Asking...</span></> : <><MessageCircle className="h-4 w-4" /><span>Ask</span></>}
                   </button>
                 </div>
 
                 {answer && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-6">
-                    <h4 className="font-semibold text-blue-900 mb-2">Answer:</h4>
-                    <div className="text-blue-800 whitespace-pre-wrap leading-relaxed">
-                      {answer}
+                  <div className="bg-gray-50 border border-gray-100 rounded-xl p-5">
+                    <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Answer</h4>
+                    <div className="prose prose-sm max-w-none text-gray-800 prose-p:my-1 prose-ul:my-1 prose-li:my-0 prose-strong:font-semibold">
+                      <ReactMarkdown>{answer}</ReactMarkdown>
                     </div>
                   </div>
                 )}
@@ -574,6 +620,7 @@ const ConfidentialUpload = () => {
             </div>
           </div>
         )}
+        {/* Clear Session Button removed — now lives in the Upload card header above */}
       </div>
     </div>
   );
