@@ -42,6 +42,98 @@ A general-purpose AI assistant pre-prompted for legal domain queries. Accepts a 
 
 For a deeper breakdown of individual components, see [docs/architecture.md](docs/architecture.md) and [docs/technical_documentation.md](docs/technical_documentation.md).
 
+```mermaid
+    flowchart TD
+
+%% ---------------- DATA PREPARATION ----------------
+subgraph DATA_PREP [Document Preparation]
+direction TB
+DOCS[Legal Documents]
+EMBED[Extract Text and Generate Embeddings]
+FAISS[FAISS Vector Store]
+
+DOCS --> EMBED --> FAISS
+end
+
+
+%% ---------------- MAIN APPLICATION ----------------
+subgraph APP [Application]
+direction TB
+
+USER[User]
+
+subgraph UI [User Interfaces]
+
+SEARCH[Search Interface]
+UPLOAD[Confidential Upload Interface]
+CHATBOT[Legal Chatbot Interface]
+
+end
+
+subgraph SEARCH_FLOW [Search Flow]
+QUERY[User Query]
+RETRIEVE[Retrieve Relevant Documents]
+RESULTS[Display Results]
+ANALYZE_BTN[Analyze Document]
+DOWNLOAD[Download Document]
+
+QUERY --> RETRIEVE --> RESULTS
+RESULTS --> ANALYZE_BTN
+RESULTS --> DOWNLOAD
+end
+
+
+subgraph CONF_FLOW [Confidential Upload Flow]
+UPLOAD_DOC[Upload Document]
+SUMMARIZE_DOC[Summarize Uploaded Document]
+ASK_Q_DOC[Ask Questions on Uploaded Document]
+SIMILAR_CASES[Retrieve Similar Legal Cases]
+
+UPLOAD_DOC --> SUMMARIZE_DOC
+UPLOAD_DOC --> ASK_Q_DOC
+UPLOAD_DOC --> SIMILAR_CASES
+end
+
+
+subgraph ANALYSIS_PAGE [Document Analysis Page]
+DOC_VIEW[Selected Document]
+RAG_PIPELINE[RAG Processing]
+SUMMARY[Document Summary]
+QNA[Question and Answer]
+
+DOC_VIEW --> RAG_PIPELINE --> SUMMARY
+DOC_VIEW --> RAG_PIPELINE --> QNA
+end
+
+
+subgraph CHATBOT_FLOW [Legal Chatbot]
+CHAT_QUERY[User Question]
+LEGAL_FILTER[Check Legal Domain]
+LLM_RESPONSE[LLM Response]
+
+CHAT_QUERY --> LEGAL_FILTER --> LLM_RESPONSE
+end
+
+end
+
+
+%% ---------------- CONNECTIONS ----------------
+USER --> SEARCH
+USER --> UPLOAD
+USER --> CHATBOT
+
+SEARCH --> QUERY
+QUERY --> FAISS
+FAISS --> RETRIEVE
+
+ANALYZE_BTN --> DOC_VIEW
+SIMILAR_CASES --> DOC_VIEW
+
+UPLOAD --> UPLOAD_DOC
+
+CHATBOT --> CHAT_QUERY
+```
+
 ---
 
 ## Tech Stack
