@@ -11,8 +11,8 @@
 
 ### 1. Clone Repository
 ```bash
-git clone <repository-url>
-cd Legal_Case
+git clone https://github.com/Sagar-S-R/JurisFind.git
+cd JurisFind
 ```
 
 ### 2. Backend Setup
@@ -32,7 +32,7 @@ python helpers/generate_embeddings.py
 
 ### 4. Start Backend
 ```bash
-uvicorn main:app --reload --host 0.0.0.0 --port 8000
+uvicorn main:create_app --factory --reload --host 0.0.0.0 --port 8000
 ```
 
 ### 5. Frontend Setup

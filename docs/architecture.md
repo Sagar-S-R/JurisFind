@@ -2,7 +2,7 @@
 
 ## System Overview
 
-Legal Case uses a microservices architecture with three main layers:
+JurisFind uses a microservices architecture with three main layers:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐

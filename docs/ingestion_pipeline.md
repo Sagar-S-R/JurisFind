@@ -26,9 +26,9 @@ PDF Document → Text Extraction → Text Chunking → Embedding Generation → 
 
 ## Embedding Generation
 
-- **Model**: sentence-transformers/all-MiniLM-L6-v2
+- **Model**: `sentence-transformers/all-mpnet-base-v2`
 - **Input**: Text chunks
-- **Output**: 384-dimensional vectors
+- **Output**: 768-dimensional vectors
 - **Batch Processing**: Process multiple chunks efficiently
 
 ## Vector Storage
@@ -43,7 +43,7 @@ PDF Document → Text Extraction → Text Chunking → Embedding Generation → 
 ```python
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
-EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+EMBEDDING_MODEL = "all-mpnet-base-v2"
 INDEX_PATH = "faiss_store/legal_cases.index"
 ```
 

@@ -14,7 +14,7 @@ User Query → Query Embedding → FAISS Search → Context Retrieval → AI Res
 
 - **Input**: Natural language search query
 - **Preprocessing**: Basic cleaning and normalization
-- **Embedding**: Same model as ingestion (all-MiniLM-L6-v2)
+- **Embedding**: Same model as ingestion (`all-mpnet-base-v2`)
 - **Output**: Query vector
 
 ## Similarity Search
@@ -33,7 +33,7 @@ User Query → Query Embedding → FAISS Search → Context Retrieval → AI Res
 
 ## AI Response Generation
 
-- **Model**: Groq llama3-70b-8192
+- **Model**: Groq `llama-3.3-70b-versatile`
 - **Prompt Engineering**: Legal-specific templates
 - **Context Injection**: Retrieved chunks as context
 - **Response Format**: Natural language with citations
@@ -50,12 +50,13 @@ User Query → Query Embedding → FAISS Search → Context Retrieval → AI Res
 ```python
 TOP_K_RESULTS = 5
 MAX_CONTEXT_LENGTH = 4000
-LLM_MODEL = "llama3-70b-8192"
+LLM_MODEL = "llama-3.3-70b-versatile"
 TEMPERATURE = 0.1
 ```
 
 ## API Endpoints
 
 - `POST /api/search`: Semantic search
-- `POST /api/analyze`: Document analysis
-- `POST /api/chat`: Conversational Q&A
+- `POST /api/unified/analyze`: Document analysis (database or uploaded PDF)
+- `POST /api/unified/ask`: Conversational Q&A on an analyzed document
+- `POST /api/legal-chat`: Legal domain chatbot

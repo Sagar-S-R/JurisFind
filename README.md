@@ -1,481 +1,249 @@
-# JurisFind - AI-Powered Legal Document Analysis
+﻿# JurisFind
 
-<div align="center">
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white) ![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=black) ![Azure](https://img.shields.io/badge/Azure-0078D4?style=flat&logo=microsoftazure&logoColor=white) ![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logoColor=white) ![Groq](https://img.shields.io/badge/Groq-F55036?style=flat&logoColor=white) ![AI%20Inference](https://img.shields.io/badge/AI%20Inference-22C55E?style=flat&logoColor=white)
 
-![JurisFind Logo](https://img.shields.io/badge/JurisFind-AI%20Legal%20Search-blue?style=for-the-badge&logo=law)
+AI-powered legal document search and analysis platform. Search across 46,456+ legal cases using semantic similarity, read AI-generated summaries, ask follow-up questions, upload confidential documents for isolated analysis, and consult a legal domain chatbot — all backed by a FastAPI backend deployed on Azure.
 
-**A comprehensive full-stack AI application for legal document analysis with Azure Blob Storage integration**
+---
 
-[![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
-[![React](https://img.shields.io/badge/React-61DAFB?style=flat&logo=react&logoColor=white)](https://reactjs.org/)
-[![Azure](https://img.shields.io/badge/Azure-0078D4?style=flat&logo=microsoft-azure&logoColor=white)](https://azure.microsoft.com/)
-[![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat&logo=langchain&logoColor=white)](https://langchain.com/)
-[![Groq](https://img.shields.io/badge/Groq-AI%20Inference-00D4AA?style=flat&logo=groq&logoColor=white)](https://groq.com/)
+## Table of Contents
 
-</div>
-
-## 📋 Table of Contents
-
-- [Overview](#overview)
-- [Key Features](#key-features) 
-- [Azure Integration](#azure-integration)
-- [Architecture](docs/architecture.md)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
 - [Quick Start](#quick-start)
-- [Azure Setup](docs/azure_integration.md)
-- [API Documentation](docs/api_reference.md)
-- [Ingestion Pipeline](docs/ingestion_pipeline.md)
-- [Query Pipeline](docs/query_pipeline.md)
-- [Deployment](docs/deployment.md)
-- [Technology Stack](#technology-stack)
-- [Configuration](#configuration)
-- [Development Guide](#development-guide)
-- [Troubleshooting](#troubleshooting)
-- [FAQ](#faq)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [API Reference](#api-reference)
+- [Documentation](#documentation)
+- [Deployment](#deployment)
 - [Contributing](#contributing)
 - [License](#license)
 
-## 🎯 Overview
+---
 
-**JurisFind** is a state-of-the-art AI application designed for legal document analysis and search. Built with modern cloud-native architecture, it leverages Azure Blob Storage for scalable document management and advanced AI for semantic understanding of legal content.
+## Features
 
-### What Makes JurisFind Special?
+### Semantic Search
+Natural language search over 46,456 indexed legal cases. Queries are embedded using `sentence-transformers/all-mpnet-base-v2`, compared against a pre-built FAISS index using cosine similarity, and results are returned ranked by relevance score. See [docs/query_pipeline.md](docs/query_pipeline.md) for the full search flow.
 
-- **Cloud-Native Architecture**: Full Azure Blob Storage integration for unlimited document storage
-- **AI-Powered Analysis**: Intelligent document processing using LangChain and Groq AI
-- **Lightning-Fast Search**: FAISS-powered semantic search that understands legal concepts
-- **Modern UI**: Clean, responsive React interface for seamless user experience
-- **Secure & Scalable**: Enterprise-ready with proper authentication and cloud security
-- **Developer-Friendly**: Comprehensive APIs and management tools for easy integration
+### PDF Analysis and Contextual Q&A
+Clicking any search result opens a document analysis view. The API downloads the PDF from Azure Blob Storage (or local fallback), extracts text with PyMuPDF, chunks it, builds a temporary per-session FAISS vector store, and passes it to a Groq LLM for summarization. Users can then ask follow-up questions against the same temporary store without re-processing the document. The temporary embeddings are cleaned up at the end of the session.
 
-### Target Users
+### Confidential Document Analysis
+Users can upload their own PDF directly from the browser. The file is saved to an ephemeral Docker volume (`confidential_tmp`), processed identically to the PDF analysis flow, and the session is cleared the moment the user uploads a new file or requests deletion. The document never reaches Azure Blob Storage — it stays on the VM in the ephemeral volume.
 
-- **Legal Professionals**: Attorneys, paralegals, and legal researchers seeking efficient document analysis
-- **Law Students**: Academic researchers and students studying legal precedents and case law
-- **Legal Tech Teams**: Developers building legal technology solutions
-- **Compliance Teams**: Organizations needing to analyze legal documents for compliance purposes
+### Legal Chatbot
+A general-purpose AI assistant pre-prompted for legal domain queries. Accepts a message and conversation history, passes them through a LangChain agent backed by Groq, and returns a streamed response.
 
-## Azure Integration
+---
 
-**Enterprise-Grade Cloud Storage**
+## Architecture
 
-JurisFind features comprehensive Azure Blob Storage integration for scalable, secure document management:
+For a deeper breakdown of individual components, see [docs/architecture.md](docs/architecture.md) and [docs/TECHNICAL_DOCUMENTATION.md](docs/TECHNICAL_DOCUMENTATION.md).
 
-- **Cloud Document Storage**: Store thousands of legal documents in Azure Blob Storage
-- **Automatic Sync**: Seamless synchronization between local development and cloud production
-- **Fast Indexing**: Generate FAISS embeddings directly from Azure-stored PDFs
-- **Global Access**: Access documents from anywhere with Azure's global infrastructure
-- **Enterprise Security**: Azure's enterprise-grade security and compliance features
+---
 
-### Azure Features
+## Tech Stack
 
-- **Scalable Storage**: Handle millions of documents without local storage constraints
-- **Cost-Effective**: Pay only for storage used with Azure's flexible pricing tiers
-- **Backup & Recovery**: Built-in redundancy and disaster recovery capabilities
-- **API Integration**: RESTful APIs for document upload, download, and management
-- **Hybrid Deployment**: Works with both local files (development) and Azure (production)
+| Layer | Technology | Notes |
+|---|---|---|
+| Frontend | React 18, Vite, TailwindCSS, react-markdown, lucide-react | Deployed on Azure Static Web Apps |
+| Backend | FastAPI, uvicorn (factory mode), Python 3.11 | Dockerized, running on Azure VM |
+| LLM | Groq `llama-3.3-70b-versatile` via LangChain | Used for summarization, Q&A, chatbot |
+| Embeddings | `sentence-transformers/all-mpnet-base-v2` | HuggingFace, runs inside the container |
+| Search | FAISS (cosine similarity) | 46,456 cases indexed, loaded from Blob on startup |
+| PDF Processing | PyMuPDF, LangChain RecursiveCharacterTextSplitter | Chunk size 1000, overlap 200 |
+| Storage | Azure Blob Storage (`jurisfindstore`, container `data`) | Holds PDFs (5.3 GB) and FAISS index (136 MB) |
+| Reverse Proxy | Nginx | Proxies port 80 to FastAPI port 8000, 20 MB upload limit |
+| Hosting — Backend | Azure VM, Standard D2alds v7, Ubuntu 24.04, East US 2 | `20.186.113.106` |
+| Hosting — Frontend | Azure Static Web Apps (free tier) | `https://blue-cliff-0dfeb910f.2.azurestaticapps.net` |
+| CI/CD | GitHub Actions | Frontend auto-deploys on push to main |
 
-### Quick Azure Setup
+---
 
-```bash
-# 1. Run the Azure setup script
-cd api
-python setup_azure.py
-
-# 2. Upload your PDFs to Azure
-python helpers/azure_data_manager.py upload-pdfs --pdf-dir ./data/pdfs
-
-# 3. Generate FAISS index from Azure PDFs
-python helpers/azure_data_manager.py generate-index
-
-# 4. Test the integration
-python tests/test_azure_integration.py
-```
-
-See [Azure Integration Guide](docs/azure_integration.md) for complete setup instructions.
-
-## Key Features
-
-### Agentic AI Architecture
-
-**Intelligent Document Processing**
-- **LangChain Integration**: Advanced prompt engineering and chain-based processing that enables complex reasoning workflows
-- **Groq AI Models**: Powered by `llama3-70b-8192` for superior legal analysis with industry-leading inference speed
-- **Intelligent Agents**: Context-aware document analysis with sophisticated memory management and reasoning capabilities
-- **Temporary Embeddings**: Dynamic vector stores created for each document analysis session, ensuring isolated and secure processing
-
-**Why Agentic AI?**
-Unlike traditional document analysis tools, JurisFind uses AI agents that can:
-- Plan multi-step analysis workflows
-- Reason about document structure and legal concepts
-- Maintain context across complex queries
-- Adapt their approach based on document type and user needs
-
-### Frontend (React + Router)
-
-**Professional Legal Interface**
-- **Multi-Page Application**: Intuitive search interface with dedicated PDF analysis pages for focused document review
-- **Real-time AI Interaction**: Instant document summarization and Q&A with live progress indicators
-- **Professional Design**: Clean, responsive interface optimized for legal professionals with accessibility features
-- **Smart Navigation**: Seamless routing between search and analysis workflows with breadcrumb navigation
-
-**User Experience Features**
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
-- **Loading States**: Clear progress indicators during document processing
-- **Error Handling**: User-friendly error messages with actionable suggestions
-- **Keyboard Navigation**: Full keyboard accessibility for efficient workflow
-
-### ⚙️ Backend (FastAPI + AI Agents)
-
-**Robust API Architecture**
-- **Agentic Architecture**: Intelligent document processing with LangChain agents that can handle complex legal reasoning tasks
-- **PDF Processing**: Advanced text extraction with PyMuPDF supporting various PDF formats and structures
-- **Vector Search**: Semantic similarity search using FAISS with configurable similarity thresholds
-- **AI Summarization**: Comprehensive document analysis using Groq AI with specialized legal prompt templates
-- **Context-aware Q&A**: Intelligent question answering with document-specific embeddings and conversation memory
-
-**Performance & Scalability**
-- **Async Processing**: Non-blocking API endpoints for handling multiple concurrent requests
-- **Memory Management**: Efficient cleanup of temporary embeddings and resources
-- **Caching**: Persistent FAISS index for fast search across document collections
-- **Error Recovery**: Robust error handling with detailed logging and graceful degradation
-
-##  Architecture
-
-JurisFind uses a microservices architecture with React frontend, FastAPI backend, and AI services. See [architecture.md](docs/architecture.md) for detailed system design and data flow.
-
-##  Quick Start
-
-Get started quickly with JurisFind. See [installation.md](docs/installation.md) for detailed setup instructions.
+## Quick Start
 
 ### Prerequisites
 
-- Node.js 16+
 - Python 3.9+
-- Groq API key
+- Node.js 18+
+- A Groq API key from [console.groq.com](https://console.groq.com/keys)
+- The FAISS index files (see [Generating the Index](#generating-the-index) below)
 
-### Basic Setup
+### Backend
 
 ```bash
-git clone <repository-url>
-cd Legal_Case
-# Follow installation guide
+cd api
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+# Open .env and set GROQ_API_KEY
+uvicorn main:create_app --factory --host 0.0.0.0 --port 8000 --reload
 ```
 
-## API Documentation
-
-Complete API reference and endpoints. See [api_reference.md](docs/api_reference.md) for detailed specifications.
-
-## Technology Stack
+Verify: `curl http://localhost:8000/api/health`
 
 ### Frontend
-- **React 18**: Modern JavaScript framework with hooks
-- **React Router**: Client-side routing for multi-page application
-- **TailwindCSS**: Utility-first CSS framework for rapid UI development
-- **Axios**: HTTP client for API requests
-- **Lucide React**: Modern icon library
-
-### Backend & AI
-- **FastAPI**: High-performance Python web framework
-- **LangChain**: Advanced AI agent framework for document processing
-- **Groq AI**: High-speed inference with llama3-70b-8192 model
-- **FAISS**: Efficient vector similarity search
-- **HuggingFace Embeddings**: Text embedding generation
-- **PyMuPDF**: Advanced PDF text extraction
-
-### Cloud & Storage
-- **Azure Blob Storage**: Enterprise cloud document storage
-- **Azure SDK**: Python SDK for Azure integration
-- **Azure Identity**: Authentication and access management
-
-### AI Models & Services
-- **Embeddings**: `sentence-transformers/all-mpnet-base-v2`
-- **Language Model**: `llama3-70b-8192` via Groq API
-- **Vector Store**: FAISS for similarity search
-- **Text Splitting**: Recursive character text splitter for chunking
-
-##  Quick Start
-
-### Option 1: Azure Cloud Setup (Recommended for Production)
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/your-username/JurisFind.git
-cd JurisFind
-
-# 2. Setup backend with Azure
-cd api
-pip install -r requirements.txt
-python setup_azure.py  # Interactive Azure setup
-
-# 3. Upload PDFs and generate index
-python helpers/azure_data_manager.py upload-pdfs --pdf-dir ./data/pdfs
-python helpers/azure_data_manager.py generate-index
-
-# 4. Start backend
-python main.py
-
-# 5. Setup frontend (new terminal)
-cd ../frontend
+cd frontend
 npm install
 npm run dev
 ```
 
-### Option 2: Local Development Setup
+Open `http://localhost:5173`
+
+### Generating the Index
+
+If you have PDFs in `api/data/pdfs/`, generate the FAISS index locally:
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/your-username/JurisFind.git
-cd JurisFind
-
-# 2. Setup backend
 cd api
-pip install -r requirements.txt
-python helpers/generate_embeddings.py  # Generate local FAISS index
-python main.py
-
-# 3. Setup frontend (new terminal)
-cd ../frontend
-npm install
-npm run dev
+python helpers/generate_embeddings.py
 ```
 
-### Environment Configuration
+This produces `api/data/faiss_store/legal_cases.index` and `api/data/faiss_store/id2name.json`. See [docs/ingestion_pipeline.md](docs/ingestion_pipeline.md) for details on the chunking and embedding strategy.
 
-Create `api/.env`:
-```env
-# Azure Blob Storage (for cloud setup)
-AZURE_STORAGE_CONNECTION_STRING="your_azure_connection_string"
-AZURE_DATA_CONTAINER="data"
+For Azure Blob Storage setup (production), see [docs/azure_integration.md](docs/azure_integration.md).
 
-# AI Configuration
-GROQ_API_KEY="your_groq_api_key"
-GROQ_MODEL="llama3-70b-8192"
+---
 
-# API Configuration
-API_HOST="localhost"
-API_PORT="8000"
+## Project Structure
+
+```
+JurisFind/
+├── api/
+│   ├── main.py                      # FastAPI app factory, CORS, router registration
+│   ├── Dockerfile                   # Python 3.11-slim, uvicorn factory mode
+│   ├── requirements.txt
+│   ├── .env.example                 # Template — copy to .env
+│   ├── agents/
+│   │   ├── legal_agent.py           # LangChain agent: PDF summarization + Q&A
+│   │   └── legal_chatbot.py         # LangChain agent: general legal chatbot
+│   ├── confidential/
+│   │   └── confidential_pdf.py      # Confidential PDF processing
+│   ├── helpers/
+│   │   ├── azure_blob_helper.py     # Blob upload, download, FAISS sync
+│   │   ├── azure_data_manager.py    # CLI tool for blob management
+│   │   └── generate_embeddings.py   # One-time FAISS index builder
+│   ├── routes/
+│   │   └── routes.py                # All API endpoints
+│   ├── services/
+│   │   └── search_service.py        # FAISS search logic, downloads from Blob on startup
+│   ├── upload_to_blob.py            # One-time script: upload FAISS files to Blob
+│   └── data/
+│       ├── faiss_store/             # legal_cases.index + id2name.json (gitignored)
+│       └── pdfs/                    # 48K legal case PDFs (gitignored)
+├── frontend/
+│   ├── vite.config.ts
+│   ├── tailwind.config.js
+│   └── src/
+│       ├── App.jsx                  # Routes definition
+│       ├── config/api.js            # Base URL from VITE_API_BASE_URL env var
+│       ├── components/
+│       │   ├── Navigation.jsx
+│       │   └── Footer.jsx
+│       └── pages/
+│           ├── LandingPage.jsx
+│           ├── SearchPage.jsx       # Semantic search UI
+│           ├── PdfAnalysis.jsx      # Document summary + chat UI
+│           ├── LegalChatbot.jsx     # Legal AI chatbot UI
+│           └── ConfidentialUpload.jsx  # Private PDF upload + analysis UI
+├── nginx.conf                       # VM reverse proxy config
+├── docker-compose.yml               # API container + confidential_tmp volume
+└── .github/
+    └── workflows/
+        └── azure-static-web-apps-*.yml  # Auto-generated by Azure portal
 ```
 
-## Configuration
+---
 
-### Environment Variables
-Create a `.env` file in the `api/` directory:
+## Environment Variables
 
-```env
-# Groq API Configuration
-GROQ_API_KEY="your_groq_api_key_here"
+Full reference in [api/.env.example](api/.env.example).
 
-# Model Configuration
-GROQ_MODEL=llama3-70b-8192
+| Variable | Required | Description |
+|---|---|---|
+| `GROQ_API_KEY` | Yes | Groq API key for LLM inference |
+| `GROQ_MODEL` | No | Defaults to `llama-3.3-70b-versatile` |
+| `AZURE_STORAGE_CONNECTION_STRING` | Production only | Full Azure Blob connection string |
+| `AZURE_DATA_CONTAINER` | Production only | Blob container name, defaults to `data` |
+| `USE_LOCAL_FILES` | No | `true` = local FAISS files, `false` = download from Blob on startup |
+| `API_HOST` | No | Defaults to `0.0.0.0` in Docker, `localhost` locally |
+| `API_PORT` | No | Defaults to `8000` |
 
-# API Configuration
-API_HOST=localhost
-API_PORT=8000
-```
+Frontend (Vite):
 
-Optionally, create a `.env` file in the `frontend/` directory for local dev:
+| Variable | Description |
+|---|---|
+| `VITE_API_BASE_URL` | Full base URL of the API, e.g. `http://20.186.113.106`. Defaults to `http://localhost:8000` |
 
-```env
-# Frontend Vite config
-VITE_API_BASE_URL="http://localhost:8000/api"
-```
+---
 
-### AI Model Configuration
-The application uses optimized models for legal document analysis:
+## API Reference
 
-- **Embeddings**: `sentence-transformers/all-mpnet-base-v2` (High-quality embeddings)
-- **Language Model**: `llama3-70b-8192` via Groq (Fast, powerful legal analysis)
-- **Text Chunking**: 1000 character chunks with 200 character overlap
-- **Vector Search**: FAISS with cosine similarity
+| Method | Endpoint | Body / Params | Description |
+|---|---|---|---|
+| GET | `/api/health` | — | Returns `{status, message, total_cases}` |
+| POST | `/api/search` | `{query, top_k}` | Semantic search — returns ranked `{filename, score, similarity_percentage}` list |
+| POST | `/api/unified/analyze` | `{filename, source}` | Analyze a PDF (`source`: `"database"` or `"uploaded"`) — returns AI summary |
+| POST | `/api/unified/ask` | `{filename, question, source}` | Q&A against an analyzed document's embeddings |
+| GET | `/api/pdf/{filename}` | — | Streams PDF binary from Blob Storage or local fallback |
+| GET | `/api/document-stats/{filename}` | — | Returns embedding and document statistics |
+| POST | `/api/upload-confidential-pdf` | `multipart/form-data` (file) | Upload a confidential PDF to ephemeral Docker volume |
+| POST | `/api/retrieve-similar-cases` | `?filename=X&top_k=5` | Find similar cases from the main index matching an uploaded PDF |
+| DELETE | `/api/cleanup-confidential/{filename}` | — | Delete confidential session and temp files |
+| POST | `/api/legal-chat` | `{question}` | General legal AI chatbot (domain-filtered) |
 
-### Frontend Configuration
-- **React Router**: Handles navigation between search and analysis pages
-- **API Base URL**: Defaults to `http://localhost:8000/api` (override with `VITE_API_BASE_URL` in `frontend/.env`)
-- **Responsive Design**: Optimized for desktop and mobile use
+Interactive Swagger UI: `http://20.186.113.106/docs`
 
-## Development
+Full request/response schemas: [docs/api_reference.md](docs/api_reference.md)
 
-### Adding New Features
-1. **Backend AI Agents**: Extend `legal_agent.py` with new LangChain chains
-2. **Frontend Pages**: Add routes in the frontend app and create page components
-3. **API Endpoints**: Add new endpoints in `routes.py` with proper Pydantic models
-4. **Prompt Engineering**: Modify chat templates in `legal_agent.py` for better AI responses
+---
 
-### Testing the Agentic AI System
-- **Backend**: Visit `http://localhost:8000/docs` for interactive API testing
-- **Agent Testing**: Test individual agent functions via FastAPI docs
-- **Frontend**: Use browser developer tools for debugging React components
-- **Integration**: Test the complete workflow from search → analysis → Q&A
+## Documentation
 
-### Customizing AI Behavior
-- **Prompt Templates**: Modify summary and Q&A templates in `legal_agent.py`
-- **Model Parameters**: Adjust temperature, max_tokens for different AI behavior
-- **Chunking Strategy**: Modify text splitter parameters for different document types
-- **Vector Search**: Adjust FAISS search parameters and similarity thresholds
+| Document | Contents |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Component diagram, layer responsibilities, data flow overview |
+| [docs/ingestion_pipeline.md](docs/ingestion_pipeline.md) | PDF text extraction, chunking strategy, FAISS index construction |
+| [docs/query_pipeline.md](docs/query_pipeline.md) | Query embedding, FAISS search, LangChain agent flow, prompt templates |
+| [docs/api_reference.md](docs/api_reference.md) | Full endpoint reference with request/response schemas |
+| [docs/azure_integration.md](docs/azure_integration.md) | Azure Blob Storage setup, container structure, ingestion to Blob, env config |
+| [docs/deployment.md](docs/deployment.md) | VM setup, Docker, Nginx, Azure Static Web Apps, CI/CD, update workflow |
+| [docs/TECHNICAL_DOCUMENTATION.md](docs/TECHNICAL_DOCUMENTATION.md) | Comprehensive internal reference covering all subsystems |
 
-## Troubleshooting
+---
 
-### Common Issues
-1. **Groq API Errors**: Ensure GROQ_API_KEY is set correctly in `.env`
-2. **Model Decommissioned**: Update to supported models (currently using llama3-70b-8192)
-3. **LangChain Import Errors**: Ensure all LangChain packages are installed correctly
-4. **PDF Processing**: Ensure PDFs contain extractable text (not scanned images)
-5. **Memory Issues**: Clean up temporary embeddings regularly for large documents
-6. **CORS Errors**: Ensure backend runs on port 8000 and frontend on 5173. If needed, set `VITE_API_BASE_URL` to match the backend URL.
+## Deployment
 
-### Path & Folder Tips
-- **Frontend path**: All npm scripts run inside `frontend/` (e.g., `cd frontend && npm run dev`).
-- **Backend path**: All Python commands run inside `api/` (e.g., `cd api && python main.py`).
-- **Data directories**: Keep PDFs in `api/pdfs/`. Generated embeddings live in `api/faiss_store/`.
-- **Env files**: Backend uses `api/.env`. Frontend can use `frontend/.env` for local overrides.
+See [docs/deployment.md](docs/deployment.md) for the complete guide covering:
 
-### Performance Tips
-- **Document Analysis**: Large documents are automatically chunked for better processing
-- **Memory Management**: Use cleanup endpoints to free temporary embeddings
-- **Concurrent Requests**: Each document analysis creates isolated embeddings
-- **Caching**: FAISS index is persistent across application restarts
+- Azure VM provisioning and Docker setup
+- Nginx reverse proxy configuration
+- Azure Static Web Apps setup and GitHub Actions workflow
+- Updating the backend after a code change
+- Environment variable management on the VM
 
-### AI Agent Debugging
-- **Agent Initialization**: Check logs for successful Groq client creation
-- **Embedding Creation**: Verify temporary vector stores are created successfully
-- **Prompt Engineering**: Monitor AI responses and adjust templates as needed
-- **Token Limits**: Large documents are truncated to stay within model limits
-
-##  Security & Privacy
-
-### Data Handling
-
-**Document Privacy:**
-- Documents are processed locally on your machine
-- Temporary embeddings are created in memory
-- No documents are stored on external servers
-- Automatic cleanup of temporary data
-
-**API Security:**
-- All API endpoints use HTTPS in production
-- Rate limiting prevents abuse
-- Input validation and sanitization
-- Error handling without sensitive data exposure
-
-**Best Practices:**
-- Keep your Groq API key secure
-- Use environment variables for sensitive configuration
-- Regularly update dependencies for security patches
-- Monitor API usage and costs
-
-### Compliance Considerations
-
-**Legal Professional Responsibility:**
-- Always review AI-generated content
-- Maintain client confidentiality
-- Follow jurisdiction-specific rules
-- Document your research methodology
-
-**Data Retention:**
-- Temporary embeddings are automatically cleaned up
-- Original documents remain in your control
-- No persistent storage of document content
-- Configurable retention policies
+---
 
 ## Contributing
 
-### How to Contribute
+1. Fork the repository
+2. Create a feature branch off `main`
+3. Follow PEP 8 for Python and ESLint config for JavaScript
+4. Add or update tests in `api/tests/` for backend changes
+5. Open a pull request with a clear description of the change
 
-We welcome contributions from the legal tech community! Here's how you can help:
-
-**1. Bug Reports**
-- Use the GitHub issue tracker
-- Include detailed reproduction steps
-- Provide system information and logs
-- Check existing issues before creating new ones
-
-**2. Feature Requests**
-- Describe the use case and benefits
-- Provide mockups or examples when possible
-- Consider implementation complexity
-- Discuss with maintainers before major changes
-
-**3. Code Contributions**
-- Fork the repository
-- Create a feature branch
-- Follow the coding standards
-- Add tests for new functionality
-- Submit a pull request with clear description
-
-### Development Guidelines
-
-**Code Style:**
-- Python: Follow PEP 8 guidelines
-- JavaScript/React: Use ESLint and Prettier
-- TypeScript: Strict type checking enabled
-- Documentation: Update README for significant changes
-
-**Testing:**
+Backend tests:
 ```bash
-# Backend testing
-cd api
-python -m pytest tests/
-
-# Frontend testing
-cd frontend
-npm test
-
-# Integration testing
-npm run test:integration
+cd api && python -m pytest tests/
 ```
 
-**Pull Request Process:**
-1. Ensure all tests pass
-2. Update documentation as needed
-3. Add changelog entry
-4. Request review from maintainers
-5. Address feedback promptly
+---
 
-### Community Guidelines
+## License
 
-**Communication:**
-- Be respectful and professional
-- Provide constructive feedback
-- Help others learn and grow
-- Follow the code of conduct
-
-**Legal Considerations:**
-- Respect intellectual property rights
-- Don't include proprietary legal documents
-- Ensure contributions comply with applicable laws
-- Maintain professional standards
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-**MIT License Summary:**
--  Commercial use allowed
--  Modification allowed
--  Distribution allowed
--  Private use allowed
--  No warranty provided
--  No liability assumed
-
-
-### Reporting Issues
-
-When reporting issues, please include:
-
-**System Information:**
-```bash
-# Backend environment
-python --version
-pip list | grep -E "(fastapi|langchain|groq)"
-
-# Frontend environment
-node --version
-npm list --depth=0
-
-# Operating system
-uname -a  # Linux/macOS
-systeminfo  # Windows
-```
-
-
-
+MIT
