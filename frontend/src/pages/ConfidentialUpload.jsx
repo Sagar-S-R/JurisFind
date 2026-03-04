@@ -124,8 +124,6 @@ const ConfidentialUpload = () => {
         setAnswer('');
         setQuestion('');
         setHasTriedRetrieve(false);
-        
-        console.log('Upload successful:', response.data.message);
       } else {
         console.error('Upload failed:', response.data);
         alert('Upload failed. Please try again.');
@@ -148,16 +146,12 @@ const ConfidentialUpload = () => {
     try {
       setRetrieving(true);
       setHasTriedRetrieve(true);
-      console.log('Retrieving similar cases for:', uploadedFile.name);
       
       // Use POST request with query parameters as expected by the backend
       const response = await axios.post(getApiUrl(`/api/retrieve-similar-cases?filename=${encodeURIComponent(uploadedFile.name)}&top_k=5`));
       
-      console.log('Retrieve response:', response.data);
-
       if (response.data.success) {
         setSimilarCases(response.data.similar_cases || []);
-        console.log('Found similar cases:', response.data.similar_cases?.length || 0);
       } else {
         console.error('Retrieve failed:', response.data);
         alert('Failed to retrieve similar cases. Please try again.');
@@ -179,7 +173,6 @@ const ConfidentialUpload = () => {
 
     try {
       setAnalyzing(true);
-      console.log('Analyzing document:', uploadedFile.name);
       
       // Use unified endpoint
       const response = await axios.post(getApiUrl('/api/unified/analyze'), {
@@ -187,15 +180,12 @@ const ConfidentialUpload = () => {
         source: 'uploaded'
       });
       
-      console.log('Analysis response:', response.data);
-
       if (response.data.success) {
         const analysisText = response.data.summary || response.data.analysis || 'Analysis completed successfully.';
         setAnalysis(analysisText);
         // Show scroll-hint toast
         setShowToast(true);
         setTimeout(() => setShowToast(false), 5000);
-        console.log('Analysis completed successfully');
       } else {
         console.error('Analysis failed:', response.data);
         alert('Failed to analyze document. Please try again.');

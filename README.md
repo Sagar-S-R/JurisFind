@@ -40,7 +40,7 @@ A general-purpose AI assistant pre-prompted for legal domain queries. Accepts a 
 
 ## Architecture
 
-For a deeper breakdown of individual components, see [docs/architecture.md](docs/architecture.md) and [docs/TECHNICAL_DOCUMENTATION.md](docs/TECHNICAL_DOCUMENTATION.md).
+For a deeper breakdown of individual components, see [docs/architecture.md](docs/architecture.md) and [docs/technical_documentation.md](docs/technical_documentation.md).
 
 ---
 
