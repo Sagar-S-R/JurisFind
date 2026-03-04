@@ -211,10 +211,10 @@ async def unified_analyze(request: UnifiedAnalysisRequest):
                 import tempfile
                 azure_helper = get_azure_blob_helper(connection_string)
                 
-                if not azure_helper.blob_exists("data", f"pdfs/{request.filename}"):
+                if not azure_helper.blob_exists(f"pdfs/{request.filename}"):
                     raise HTTPException(status_code=404, detail="PDF not found in Azure storage")
                 
-                pdf_content = azure_helper.download_blob("data", f"pdfs/{request.filename}")
+                pdf_content = azure_helper.download_blob(f"pdfs/{request.filename}")
                 
                 with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                     temp_file.write(pdf_content)
@@ -491,10 +491,10 @@ async def analyze_document(filename: str):
             import tempfile
             azure_helper = get_azure_blob_helper(connection_string)
             
-            if not azure_helper.blob_exists("data", f"pdfs/{filename}"):
+            if not azure_helper.blob_exists(f"pdfs/{filename}"):
                 raise HTTPException(status_code=404, detail="PDF not found in Azure storage")
             
-            pdf_content = azure_helper.download_blob("data", f"pdfs/{filename}")
+            pdf_content = azure_helper.download_blob(f"pdfs/{filename}")
             
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                 temp_file.write(pdf_content)
