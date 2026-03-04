@@ -1,8 +1,8 @@
 // API Configuration
 const API_CONFIG = {
   // Set VITE_API_BASE_URL in .env.local for local dev (e.g. http://localhost:8000)
-  // Set it in Azure Static Web App env vars for production
-  BASE_URL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+  // Leave it empty ("") in Vercel env vars for production — Vercel proxy handles routing
+  BASE_URL: import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000',
   
   // API endpoints
   ENDPOINTS: {
