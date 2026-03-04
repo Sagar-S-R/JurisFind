@@ -39,7 +39,7 @@ def create_app():
             "http://localhost:5173",  # Vite dev server
             "http://localhost:3000",  # React dev server
             "http://20.186.113.106",  # Azure VM public IP
-            "https://blue-cliff-0dfeb910f.2.azurestaticapps.net",  # Azure Static Web App
+            "https://jurisfind.vercel.app",  # Vercel frontend
         ],
         allow_credentials=True,
         allow_methods=["*"],
