@@ -17,6 +17,7 @@ AI-powered legal document search and analysis platform. Search across 46,456+ le
 - [API Reference](#api-reference)
 - [Documentation](#documentation)
 - [Deployment](#deployment)
+- [UI Design History](#ui-design-history)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -318,6 +319,32 @@ See [docs/deployment.md](docs/deployment.md) for the complete guide covering:
 - Azure Static Web Apps setup and GitHub Actions workflow
 - Updating the backend after a code change
 - Environment variable management on the VM
+
+---
+
+## UI Design History
+
+The table below tracks every significant change to the JurisFind frontend UI, including the date it was introduced, the component(s) affected, and a brief description of the change.
+
+| Date | Version | Component(s) | Description |
+|------|---------|--------------|-------------|
+| 2026-03-04 | v1.0 | All pages | **Initial UI design.** Introduced the full frontend built with React 18 and Tailwind CSS. Key design decisions: warm off-white background (`#EAEAE4`), sticky frosted-glass navigation bar, serif display headings with tight letter-spacing, amber/orange accent palette, rounded-full buttons, and card-based layout throughout. Pages shipped: Landing, Case Search, PDF Analysis, Legal Chatbot, Confidential Upload. |
+
+### Design System (v1.0)
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| Background | `#EAEAE4` | Page background |
+| Surface | `#FFFFFF` | Cards, navbar |
+| CTA surface | `#E0E0DA` | Bottom CTA section |
+| Primary text | `gray-900` | Headings, labels |
+| Muted text | `gray-500` / `gray-400` | Subtitles, placeholders |
+| Accent | `amber-400` → `orange-500` | Avatar gradient, document icons |
+| Primary action | `bg-gray-900 text-white rounded-full` | Buttons |
+| Border radius | `rounded-2xl` (cards), `rounded-full` (pills) | Containers and buttons |
+| Font — display | `font-serif-display` | Hero and section headings |
+| Font — body | System sans-serif (Tailwind default) | Body text |
+| Shadow | `shadow-2xl` (product mockup), `shadow-md` (hover cards) | Depth |
 
 ---
 
