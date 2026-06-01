@@ -1,27 +1,32 @@
-// API Configuration
+// API Configuration — v1
 const API_CONFIG = {
   // Set VITE_API_BASE_URL=http://localhost:8000 in .env.local for local dev
   // In production (Vercel), leave unset — defaults to '' so Vercel proxy handles routing
   BASE_URL: import.meta.env.VITE_API_BASE_URL ?? '',
-  
-  // API endpoints
+
+  // API endpoints (business-capability oriented)
   ENDPOINTS: {
-    SEARCH: '/api/search',
+    // Health
     HEALTH: '/api/health',
-    LEGAL_CHAT: '/api/legal-chat',
-    LEGAL_CHAT_STATS: '/api/legal-chat/stats',
-    UPLOAD_CONFIDENTIAL: '/api/upload-confidential-pdf',
-    RETRIEVE_SIMILAR_CASES: '/api/retrieve-similar-cases',
-    // Legacy endpoints (kept for backward compatibility)
-    ANALYZE_CONFIDENTIAL: '/api/analyze-confidential-pdf',
-    ASK_QUESTION_CONFIDENTIAL: '/api/ask-question-confidential',
-    ANALYZE_DOCUMENT: '/api/analyze-document',
-    DOCUMENT_STATS: '/api/document-stats',
-    ASK_QUESTION: '/api/ask-question',
+
+    // Authentication
+    AUTH_REGISTER: '/api/auth/register',
+    AUTH_LOGIN: '/api/auth/login',
+
+    // Cases (search & retrieval)
+    CASES_SEARCH: '/api/cases/search',
+    CASES_GET: '/api/cases',         // + /{case_id}
+
+    // Documents (unified ingestion, analysis, chat)
+    DOCUMENTS: '/api/documents',     // POST (ingest), GET (list)
+    DOCUMENT_RETRIEVE: '/api/documents/retrieve',  // POST with JSON body
+    // Sub-routes: /api/documents/{id}/status|analysis|chat|similar-cases
+
+    // Legal chatbot
+    LEGAL_CHAT: '/api/chat/legal',
+
+    // PDF viewer (served directly)
     PDF: '/api/pdf',
-    // Unified endpoints (new)
-    UNIFIED_ANALYZE: '/api/unified/analyze',
-    UNIFIED_ASK: '/api/unified/ask',
   }
 };
 

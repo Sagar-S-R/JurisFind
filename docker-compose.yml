@@ -1,18 +1,53 @@
 # ─────────────────────────────────────────────
 # JurisFind – Docker Compose (Production on Azure VM)
 # Usage:
-#   docker compose up -d           → start
+#   docker compose up -d           → start all services
 #   docker compose down             → stop
-#   docker compose logs -f api      → live logs
+#   docker compose logs -f api      → live API logs
+#   docker compose logs -f celery_worker → live worker logs
 #   docker compose pull && docker compose up -d --build  → redeploy
 # ─────────────────────────────────────────────
 
 version: "3.9"
 
+# ── Shared network ────────────────────────────────────────────────────────────
+networks:
+  jurisfind_net:
+    driver: bridge
+
+# ── Named volumes ─────────────────────────────────────────────────────────────
+volumes:
+  confidential_tmp:
+  rabbitmq_data:
+
 services:
+
+  # ── RabbitMQ (Message Broker) ─────────────────────────────────────────────
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: jurisfind_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"        # AMQP protocol (broker)
+      - "15672:15672"      # Management UI (http://localhost:15672)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - jurisfind_net
+
+  # ── FastAPI (Stateless API layer) ─────────────────────────────────────────
   api:
     build:
-      context: ./api
+      context: ./backend
       dockerfile: Dockerfile
     container_name: jurisfind_api
     restart: always
@@ -20,19 +55,53 @@ services:
       # Only expose to localhost — Nginx proxies from port 80 to here
       - "127.0.0.1:8000:8000"
     env_file:
-      # Copy api/.env.example → api/.env on the VM and fill in real values
-      - ./api/.env
+      # Copy backend/.env.example → backend/.env on the VM and fill in real values
+      - ./backend/.env
     volumes:
       # Persist local FAISS index & PDFs if not using Azure Blob
-      - ./api/data:/app/data
+      - ./backend/data:/app/data
       # Temp dir for confidential uploads (cleared between restarts is fine)
       - confidential_tmp:/tmp/confidential_uploads
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 90s   # give sentence-transformers time to load on first boot
+    networks:
+      - jurisfind_net
 
-volumes:
-  confidential_tmp:
+  # ── Celery Worker (Distributed Document Processor) ────────────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jurisfind_celery_worker
+    restart: always
+    # Override the Dockerfile CMD — run the Celery worker instead of uvicorn
+    command: >
+      celery -A workers.celery_app worker
+      --loglevel=info
+      --concurrency=2
+      --prefetch-multiplier=1
+      -P prefork
+      -Q jurisfind_documents
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/data:/app/data
+      - confidential_tmp:/tmp/confidential_uploads
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "-A", "workers.celery_app", "inspect", "ping"]
+      interval: 30s
+      timeout: 15s
+      retries: 3
+      start_period: 120s   # model loading takes time
+    networks:
+      - jurisfind_net

@@ -26,7 +26,7 @@ function SearchPage() {
 
     setLoading(true);
     try {
-      const response = await fetch(getApiUrl('/api/search'), {
+      const response = await fetch(getApiUrl('/api/cases/search'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -143,7 +143,7 @@ function SearchPage() {
                                           hover:border-gray-300 hover:shadow-sm transition-all duration-200">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
                     <h4 className="text-sm font-semibold text-gray-900 flex-1">
-                      {result.title || filenameToTitle(result.filename)}
+                      {result.title || filenameToTitle(result.case_id || result.filename)}
                     </h4>
                     <span className="self-start bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap">
                       {Math.round((result.similarity_percentage || result.score * 100 || 80))}% match
@@ -151,8 +151,8 @@ function SearchPage() {
                   </div>
                   <p className="text-sm text-gray-500 mb-4 leading-relaxed line-clamp-3">
                     {result.content || result.text || (
-                      result.filename
-                        ? `File: ${filenameToTitle(result.filename)}`
+                      (result.case_id || result.filename)
+                        ? `File: ${filenameToTitle(result.case_id || result.filename)}`
                         : 'Case content and legal analysis...'
                     )}
                   </p>
@@ -161,8 +161,9 @@ function SearchPage() {
                       className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 text-white
                         px-4 py-2 rounded-full text-xs font-medium transition-colors"
                       onClick={() => {
-                        if (result.filename) {
-                          navigate(`/analyze/${encodeURIComponent(result.filename)}`, {
+                        const id = result.case_id || result.filename;
+                        if (id) {
+                          navigate(`/analyze/${encodeURIComponent(id)}`, {
                             state: { from: '/search' }
                           });
                         }
@@ -175,20 +176,19 @@ function SearchPage() {
                       className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300
                         text-gray-700 px-4 py-2 rounded-full text-xs font-medium transition-colors"
                       onClick={() => {
-                        if (result.filename) {
-                          window.open(getPdfUrl(result.filename), '_blank');
-                        }
+                        const id = result.case_id || result.filename;
+                        if (id) window.open(getPdfUrl(id), '_blank');
                       }}
                     >
                       <Eye className="h-3.5 w-3.5" />
                       <span>View PDF</span>
                     </button>
                     <a
-                      href={result.filename ? getPdfUrl(result.filename) : '#'}
-                      download={result.filename}
+                      href={(result.case_id || result.filename) ? getPdfUrl(result.case_id || result.filename) : '#'}
+                      download={result.case_id || result.filename}
                       className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300
                         text-gray-700 px-4 py-2 rounded-full text-xs font-medium transition-colors"
-                      onClick={(e) => { if (!result.filename) e.preventDefault(); }}
+                      onClick={(e) => { if (!(result.case_id || result.filename)) e.preventDefault(); }}
                     >
                       <Download className="h-3.5 w-3.5" />
                       <span>Download</span>

@@ -104,21 +104,21 @@ const ConfidentialUpload = () => {
       setUploading(true);
       const formData = new FormData();
       formData.append('file', file);
+      formData.append('is_confidential', 'true');
 
-      const response = await axios.post(getApiUrl('/api/upload-confidential-pdf'), formData, {
+      const response = await axios.post(getApiUrl('/api/documents'), formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
       });
 
-      if (response.data.success) {
-        // Clear sessionStorage so old state doesn't bleed into new upload
+      // v1 returns { document_id, status: 'completed' } for ephemeral uploads
+      if (response.data.document_id || response.data.status === 'completed') {
         sessionStorage.removeItem(SESSION_KEY);
         setUploadedFile({
           name: file.name,
           size: file.size
         });
-        // Clear previous results when new file is uploaded
         setSimilarCases([]);
         setAnalysis(null);
         setAnswer('');
@@ -146,16 +146,12 @@ const ConfidentialUpload = () => {
     try {
       setRetrieving(true);
       setHasTriedRetrieve(true);
-      
-      // Use POST request with query parameters as expected by the backend
-      const response = await axios.post(getApiUrl(`/api/retrieve-similar-cases?filename=${encodeURIComponent(uploadedFile.name)}&top_k=5`));
-      
-      if (response.data.success) {
-        setSimilarCases(response.data.similar_cases || []);
-      } else {
-        console.error('Retrieve failed:', response.data);
-        alert('Failed to retrieve similar cases. Please try again.');
-      }
+
+      // v1: GET /api/documents/{document_id}/similar-cases
+      const response = await axios.get(
+        getApiUrl(`/api/documents/${encodeURIComponent(uploadedFile.name)}/similar-cases?top_k=5`)
+      );
+      setSimilarCases(response.data.similar_cases || []);
     } catch (err) {
       console.error('Retrieve error:', err);
       const errorMessage = err.response?.data?.detail || 'Failed to retrieve similar cases. Please ensure your file was uploaded correctly and try again.';
@@ -173,23 +169,16 @@ const ConfidentialUpload = () => {
 
     try {
       setAnalyzing(true);
-      
-      // Use unified endpoint
-      const response = await axios.post(getApiUrl('/api/unified/analyze'), {
-        filename: uploadedFile.name,
-        source: 'uploaded'
-      });
-      
-      if (response.data.success) {
-        const analysisText = response.data.summary || response.data.analysis || 'Analysis completed successfully.';
-        setAnalysis(analysisText);
-        // Show scroll-hint toast
-        setShowToast(true);
-        setTimeout(() => setShowToast(false), 5000);
-      } else {
-        console.error('Analysis failed:', response.data);
-        alert('Failed to analyze document. Please try again.');
-      }
+
+      // v1: GET /api/documents/{document_id}/analysis
+      const response = await axios.get(
+        getApiUrl(`/api/documents/${encodeURIComponent(uploadedFile.name)}/analysis`)
+      );
+
+      const analysisText = response.data.analysis?.summary || response.data.summary || 'Analysis completed successfully.';
+      setAnalysis(analysisText);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     } catch (err) {
       console.error('Analysis error:', err);
       const errorMessage = err.response?.data?.detail || 'Failed to analyze document. Please ensure your file was uploaded correctly and try again.';
@@ -204,19 +193,14 @@ const ConfidentialUpload = () => {
 
     try {
       setIsAsking(true);
-      // Use unified endpoint
-      const response = await axios.post(getApiUrl('/api/unified/ask'), {
-        filename: uploadedFile.name,
-        question: question.trim(),
-        source: 'uploaded'
-      });
+      // v1: POST /api/documents/{document_id}/chat
+      const response = await axios.post(
+        getApiUrl(`/api/documents/${encodeURIComponent(uploadedFile.name)}/chat`),
+        { question: question.trim() }
+      );
 
-      if (response.data.success) {
-        setAnswer(response.data.answer);
-      } else {
-        console.error('Question failed:', response.data);
-        alert('Failed to process question. Please try again.');
-      }
+      const answer = response.data.message || response.data.answer || 'No answer returned.';
+      setAnswer(answer);
     } catch (err) {
       console.error('Question error:', err);
       const errorMessage = err.response?.data?.detail || 'Failed to process question. Please try again.';

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import ReactMarkdown from "react-markdown";
 import { getApiUrl } from "../config/api";
@@ -49,7 +49,7 @@ const LegalChatbot = () => {
     setSidebarOpen(false);
 
     try {
-      const response = await axios.post(getApiUrl("/api/legal-chat"), {
+      const response = await axios.post(getApiUrl("/api/chat/legal"), {
         question: msg,
       });
       setMessages((prev) => [

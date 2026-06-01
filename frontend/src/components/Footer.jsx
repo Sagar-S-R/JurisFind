@@ -19,7 +19,7 @@ function Footer() {
           <div className="flex flex-wrap gap-x-8 gap-y-2 text-sm text-gray-500">
             <Link to="/search" className="hover:text-gray-900 transition-colors">Case Search</Link>
             <Link to="/legal-chat" className="hover:text-gray-900 transition-colors">AI Assistant</Link>
-            <Link to="/confidential-upload" className="hover:text-gray-900 transition-colors">Analysis</Link>
+            <Link to="/analysis" className="hover:text-gray-900 transition-colors">Analysis</Link>
             <a href="#privacy" className="hover:text-gray-900 transition-colors">Privacy</a>
             <a href="#terms" className="hover:text-gray-900 transition-colors">Terms</a>
           </div>

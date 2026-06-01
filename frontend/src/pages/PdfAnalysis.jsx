@@ -41,7 +41,6 @@ const PdfAnalysis = () => {
   useEffect(() => {
     if (filename) {
       analyzeDocument();
-      getDocumentStats();
     }
   }, [filename]);
 
@@ -52,47 +51,35 @@ const PdfAnalysis = () => {
       setLoading(true);
       setError(null);
       
-      // Use unified endpoint
-      const response = await axios.post(getApiUrl('/api/unified/analyze'), {
-        filename: filename,
-        source: 'database'
-      });
+      // Use unified analysis endpoint
+      const response = await axios.get(getApiUrl(`/api/documents/${encodeURIComponent(filename)}/analysis`));
       
-      if (response.data.success) {
-        setAnalysis(response.data);
-        // Add initial analysis as first message in chat (preserve any existing user messages)
-        setChatHistory(prev => {
-          const userMessages = prev.filter(m => !m.isAnalysis);
-          return [
-            {
-              id: 'analysis',
-              type: 'bot',
-              content: `**Document Analysis Complete**\n\n${response.data.summary || 'Analysis completed successfully.'}`,
-              timestamp: new Date(),
-              isAnalysis: true
-            },
-            ...userMessages
-          ];
-        });
-      } else {
-        setError('Failed to analyze document');
+      // v1 returns { analysis: { summary, key_points }, stats: { pages, words } }
+      const data = response.data;
+      const summary = data.analysis?.summary || data.summary || '';
+      const key_points = data.analysis?.key_points || data.key_points || [];
+      setAnalysis({ success: true, summary, key_points, ...data.stats });
+      if (data.stats) {
+        setDocumentStats(data.stats);
       }
+      setChatHistory(prev => {
+        const userMessages = prev.filter(m => !m.isAnalysis);
+        return [
+          {
+            id: 'analysis',
+            type: 'bot',
+            content: `**Document Analysis Complete**\n\n${summary || 'Analysis completed successfully.'}`,
+            timestamp: new Date(),
+            isAnalysis: true
+          },
+          ...userMessages
+        ];
+      });
     } catch (err) {
       console.error('Analysis error:', err);
       setError(err.response?.data?.detail || 'Failed to analyze document. Please try again.');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getDocumentStats = async () => {
-    try {
-      const response = await axios.get(getApiUrl(`/api/document-stats/${filename}`));
-      if (response.data.success) {
-        setDocumentStats(response.data.stats);
-      }
-    } catch (err) {
-      console.error('Stats error:', err);
     }
   };
 
@@ -113,31 +100,19 @@ const PdfAnalysis = () => {
     setIsAsking(true);
 
     try {
-      // Use unified endpoint
-      const response = await axios.post(getApiUrl('/api/unified/ask'), {
+      // Use document chat endpoint
+      const response = await axios.post(getApiUrl(`/api/documents/${encodeURIComponent(filename)}/chat`), {
         question: currentQuestion,
-        filename: filename,
-        source: 'database'
       });
       
-      if (response.data.success) {
-        const botMessage = {
-          id: `bot-${msgId}`,
-          type: 'bot',
-          content: response.data.answer,
-          timestamp: new Date()
-        };
-        setChatHistory(prev => [...prev, botMessage]);
-      } else {
-        const errorMessage = {
-          id: `err-${msgId}`,
-          type: 'bot',
-          content: "I apologize, but I couldn't process your question. Please try rephrasing it.",
-          timestamp: new Date(),
-          isError: true
-        };
-        setChatHistory(prev => [...prev, errorMessage]);
-      }
+      const answer = response.data.message || response.data.answer || "I couldn't process your question.";
+      const botMessage = {
+        id: `bot-${msgId}`,
+        type: 'bot',
+        content: answer,
+        timestamp: new Date()
+      };
+      setChatHistory(prev => [...prev, botMessage]);
     } catch (err) {
       console.error('Question error:', err);
       const errorMessage = {

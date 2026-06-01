@@ -1,9 +1,11 @@
-﻿import React from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MessageSquare, Upload, FileText, Scale } from 'lucide-react';
+import { Search, MessageSquare, Upload, FileText, Scale, Files } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 function LandingPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   return (
     <div
@@ -38,10 +40,10 @@ function LandingPage() {
 
           {/* CTA Button */}
           <button
-            onClick={() => navigate('/search')}
+            onClick={() => navigate(isAuthenticated ? '/analysis' : '/login')}
             className="inline-flex items-center gap-2 bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
           >
-            Start for free
+            {isAuthenticated ? 'My Documents' : 'Start for free'}
           </button>
         </div>
 
@@ -166,12 +168,16 @@ function LandingPage() {
                 icon: Upload,
                 title: 'Confidential Analysis',
                 desc: 'Upload private documents and receive detailed AI-powered analysis.',
-                path: '/confidential-upload',
+                path: '/analysis',
               },
             ].map((f) => (
               <div
                 key={f.title}
-                onClick={() => navigate(f.path)}
+                onClick={() =>
+                  isAuthenticated
+                    ? navigate(f.path)
+                    : navigate('/login', { state: { from: { pathname: f.path } } })
+                }
                 className="group p-6 rounded-2xl border border-gray-200/60 bg-white/60 hover:bg-white hover:shadow-md transition-all duration-200 cursor-pointer"
               >
                 <div className="w-9 h-9 rounded-xl bg-gray-900 flex items-center justify-center mb-4">
@@ -201,18 +207,29 @@ function LandingPage() {
             Join legal professionals who trust JurisFind for fast, reliable, AI-powered research.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <button
-              onClick={() => navigate('/search')}
-              className="bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors"
-            >
-              Start searching
-            </button>
-            <button
-              onClick={() => navigate('/legal-chat')}
-              className="bg-white text-gray-700 px-7 py-3 rounded-full text-sm font-medium border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
-            >
-              Try AI Assistant
-            </button>
+            {isAuthenticated ? (
+              <button
+                onClick={() => navigate('/analysis')}
+                className="bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Go to My Documents →
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors"
+                >
+                  Get started — it's free
+                </button>
+                <button
+                  onClick={() => navigate('/login')}
+                  className="bg-white text-gray-700 px-7 py-3 rounded-full text-sm font-medium border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors"
+                >
+                  Sign in
+                </button>
+              </>
+            )}
           </div>
         </div>
       </div>
