@@ -56,9 +56,10 @@ class BlobStorageService:
         env_local = os.getenv("USE_LOCAL_FILES", "true").lower() == "true"
         self._use_local: bool = use_local if use_local is not None else env_local
 
-        # Local storage root
-        _api_dir = Path(__file__).resolve().parent.parent
-        self._local_root: Path = _api_dir / "data" / "uploaded_documents"
+        # Local storage root — lives at backend/data/uploaded_documents/
+        # (sibling to data/pdfs/ and data/faiss_store/, outside the app source tree)
+        _backend_dir = Path(__file__).resolve().parent.parent.parent
+        self._local_root: Path = _backend_dir / "data" / "uploaded_documents"
         self._local_root.mkdir(parents=True, exist_ok=True)
 
         # Lazy Azure client

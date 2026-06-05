@@ -232,7 +232,8 @@ async def send_message(
                         
             except Exception as e:
                 logger.error("Streaming error: %s", e)
-                yield f"data: {json.dumps({'content': f'[Error generating response: {e}]'})}\n\n"
+                # Avoid leaking raw API errors (like Rate Limits) to the user
+                yield f"data: {json.dumps({'content': '[Server busy. Please try again in a moment.]'})}\n\n"
             
             # Signal text stream complete FIRST — citations appear after the answer
             yield "data: [DONE]\n\n"
@@ -295,7 +296,8 @@ async def send_message(
                         
             except Exception as e:
                 logger.error("Streaming error: %s", e)
-                yield f"data: {json.dumps({'content': f'[Error generating response: {e}]'})}\n\n"
+                # Avoid leaking raw API errors (like Rate Limits) to the user
+                yield f"data: {json.dumps({'content': '[Server busy. Please try again in a moment.]'})}\n\n"
                 
             yield "data: [DONE]\n\n"
             

@@ -4,10 +4,14 @@ Documents API Router — JurisFind V2.
 Handles PDF uploads, database saving, status polling, and triggering Celery workers.
 """
 import logging
+import io
+import tempfile
+import os
 from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -88,3 +92,40 @@ def get_document_status(
         raise HTTPException(status_code=403, detail="Not authorized to access this document")
         
     return doc
+
+
+@router.get("/{document_id}/pdf", summary="Serve a document PDF inline")
+def serve_document_pdf(
+    document_id: UUID,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user),
+):
+    """
+    Serve a PDF for a document — works for both corpus cases and user uploads.
+
+    Uses blob_storage_service to resolve the file regardless of where it is stored
+    (absolute path for corpus cases, relative path for uploaded documents).
+    Returns inline so the browser renders rather than downloads.
+    """
+    import uuid as _uuid
+
+    doc = doc_repo.get_document(db, document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found.")
+
+    # Auth: user-owned docs must belong to the requesting user.
+    # Corpus docs (owner_id=None) are accessible to any logged-in user.
+    if doc.owner_id is not None and doc.owner_id != _uuid.UUID(user_id):
+        raise HTTPException(status_code=403, detail="Not authorized to access this document.")
+
+    try:
+        pdf_bytes = blob_storage_service.download_pdf(doc.blob_path)
+    except Exception as exc:
+        logger.error("Failed to serve PDF for document %s: %s", document_id, exc)
+        raise HTTPException(status_code=404, detail="PDF file not found.")
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline"},
+    )

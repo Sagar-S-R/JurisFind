@@ -6,9 +6,13 @@
 
 export const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
-/** Get the full URL for serving a legal case PDF. */
+/** Get the full URL for serving a corpus case PDF (search page — no auth needed). */
 export const getPdfUrl = (filename) =>
   `${BASE}/api/pdf/${encodeURIComponent(filename)}`;
+
+/** Get the full URL for serving any document PDF (assistant citations — requires auth token). */
+export const getDocumentPdfUrl = (documentId) =>
+  `${BASE}/api/documents/${encodeURIComponent(documentId)}/pdf`;
 
 
 async function request(path, options = {}, token = null) {

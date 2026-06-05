@@ -282,5 +282,12 @@ async def serve_pdf(filename: str):
     pdf_path = os.path.join(local_pdf_dir, safe_filename)
     if not os.path.exists(pdf_path):
         raise HTTPException(status_code=404, detail="PDF file not found.")
-    return FileResponse(pdf_path, media_type="application/pdf", filename=safe_filename)
+    
+    # content_disposition_type="inline" tells the browser to render in-viewer.
+    # Omitting `filename` prevents Chrome from treating it as an attachment download.
+    return FileResponse(
+        pdf_path,
+        media_type="application/pdf",
+        content_disposition_type="inline",
+    )
 

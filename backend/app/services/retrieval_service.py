@@ -40,6 +40,7 @@ class RetrievedChunk:
         chunk_id: str,
         document_id: str,
         document_title: str,
+        document_filename: str,
         page_number: int,
         chunk_text: str,
         similarity: float,
@@ -47,6 +48,7 @@ class RetrievedChunk:
         self.chunk_id = chunk_id
         self.document_id = document_id
         self.document_title = document_title
+        self.document_filename = document_filename
         self.page_number = page_number
         self.chunk_text = chunk_text
         self.similarity = similarity
@@ -62,7 +64,9 @@ class RetrievedChunk:
     def as_citation(self) -> dict:
         """Return citation metadata for the API response."""
         return {
+            "document_id": self.document_id,
             "document_title": self.document_title,
+            "document_filename": self.document_filename,
             "page_number": self.page_number,
             "excerpt": self.chunk_text[:200],
         }
@@ -103,6 +107,7 @@ def retrieve_for_session(
             dc.id            AS chunk_id,
             dc.document_id,
             d.title          AS document_title,
+            d.blob_path      AS document_blob_path,
             dc.page_number,
             dc.chunk_text,
             1 - (de.embedding <=> CAST(:query_vec AS vector)) AS similarity
@@ -124,11 +129,13 @@ def retrieve_for_session(
         },
     ).fetchall()
 
+    import os
     results = [
         RetrievedChunk(
             chunk_id=str(row.chunk_id),
             document_id=str(row.document_id),
             document_title=row.document_title,
+            document_filename=os.path.basename(row.document_blob_path),
             page_number=row.page_number,
             chunk_text=row.chunk_text,
             similarity=float(row.similarity),

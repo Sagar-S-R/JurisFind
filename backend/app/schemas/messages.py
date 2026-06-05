@@ -9,7 +9,9 @@ from pydantic import BaseModel, Field
 
 
 class CitationModel(BaseModel):
+    document_id: str
     document_title: str
+    document_filename: str
     page_number: int
     excerpt: str
 

@@ -4,14 +4,116 @@ import {
   Send, FileText, Loader2, AlertCircle, Plus,
   User, Bot, BookOpen, Trash2,
   MessageSquare, History, Search,
-  Menu, X, Paperclip, Clock
+  Menu, X, Paperclip, Clock,
+  Eye, DownloadCloud, Download
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { chatApi, sessionsApi, docsApi } from '../config/apiClient';
+import { chatApi, sessionsApi, docsApi, getPdfUrl, getDocumentPdfUrl } from '../config/apiClient';
+
+// ── PDF Viewer Modal ───────────────────────────────────────────────────────
+// We fetch the PDF as a blob and render via a local object URL to avoid
+// cross-origin iframe restrictions between localhost:5173 and localhost:8000.
+
+function PdfViewerModal({ url, title, token, onClose }) {
+  const [blobUrl, setBlobUrl] = React.useState(null);
+  const [fetchError, setFetchError] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!url) return;
+    let objectUrl = null;
+
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+    fetch(url, { headers })
+      .then((res) => {
+        if (!res.ok) throw new Error('fetch failed');
+        return res.blob();
+      })
+      .then((blob) => {
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => setFetchError(true));
+
+    return () => {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+
+  // Close on backdrop click
+  const handleBackdrop = (e) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  if (!url) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+      onClick={handleBackdrop}
+    >
+      <div className="bg-white w-full max-w-5xl h-[90vh] rounded-2xl overflow-hidden flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-white shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center shrink-0">
+              <FileText className="h-4 w-4 text-amber-600" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-900 truncate">{title}</h3>
+          </div>
+          <div className="flex items-center gap-2">
+            <a
+              href={url}
+              download={title}
+              className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
+              title="Download PDF"
+            >
+              <Download className="h-4 w-4" />
+            </a>
+            <button
+              onClick={onClose}
+              className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 bg-gray-100 overflow-hidden relative flex items-center justify-center">
+          {fetchError ? (
+            <div className="text-center text-gray-500 text-sm space-y-3">
+              <AlertCircle className="h-8 w-8 mx-auto text-gray-300" />
+              <p>Could not load PDF preview.</p>
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-gray-900 text-white text-xs font-medium rounded-xl hover:bg-gray-700 transition-all"
+              >
+                <Eye className="h-3.5 w-3.5" /> Open in new tab
+              </a>
+            </div>
+          ) : blobUrl ? (
+            <iframe
+              src={`${blobUrl}#toolbar=1&view=FitH`}
+              className="w-full h-full border-none"
+              title={title}
+            />
+          ) : (
+            <div className="flex flex-col items-center gap-3 text-gray-400">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="text-xs">loading pdf...</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Message Component ──────────────────────────────────────────────────────
 
-function Message({ msg }) {
+function Message({ msg, token, onViewPdf, onDownloadPdf }) {
   const isUser   = msg.role === 'user';
   const isSystem = msg.role === 'system';
   const hasCitations = msg.citations && msg.citations.length > 0;
@@ -66,7 +168,22 @@ function Message({ msg }) {
                     <span className="text-[11px] font-semibold text-gray-700 truncate">{cite.document_title}</span>
                     <span className="text-[10px] text-gray-400 bg-white px-1.5 py-0.5 rounded border border-gray-100 ml-auto shrink-0">Page {cite.page_number}</span>
                   </div>
-                  <p className="text-[11px] text-gray-500 italic line-clamp-2 leading-snug">"{cite.excerpt}..."</p>
+                  <p className="text-[11px] text-gray-500 italic line-clamp-2 leading-snug mb-2">"{cite.excerpt}..."</p>
+                  
+                  <div className="flex items-center gap-2 mt-2">
+                    <button 
+                      onClick={() => onViewPdf(getDocumentPdfUrl(cite.document_id), cite.document_title)}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px] font-medium text-gray-600 hover:border-amber-300 hover:text-amber-700 transition-all shadow-sm"
+                    >
+                      <Eye className="h-3 w-3" /> View Source
+                    </button>
+                    <button 
+                      onClick={() => onDownloadPdf(getDocumentPdfUrl(cite.document_id), cite.document_title, token)}
+                      className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-white border border-gray-200 text-[10px] font-medium text-gray-600 hover:border-gray-400 transition-all shadow-sm"
+                    >
+                      <DownloadCloud className="h-3 w-3" /> Download
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -102,6 +219,9 @@ export default function AssistantPage() {
   const [error, setError]                 = useState('');
   const [sidebarOpen, setSidebarOpen]     = useState(true);
 
+  // PDF Viewer Modal State
+  const [viewerPdf, setViewerPdf]         = useState(null); // { url, title }
+
   // PDF staging — the file is held in state until the user sends a message
   const [stagedFile, setStagedFile]       = useState(null); // { file: File, name: string }
   const [uploading, setUploading]         = useState(false);
@@ -111,6 +231,26 @@ export default function AssistantPage() {
   const fileRef   = useRef(null);
 
   // ── Fetch / Load Helpers ──────────────────────────────────────────────────
+
+  const handleDownloadPdf = async (url, title, userToken) => {
+    try {
+      const headers = userToken ? { Authorization: `Bearer ${userToken}` } : {};
+      const res = await fetch(url, { headers });
+      if (!res.ok) throw new Error('Download failed');
+      const blob = await res.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = blobUrl;
+      a.download = title.toLowerCase().endsWith('.pdf') ? title : `${title}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+    } catch (e) {
+      console.error(e);
+      alert('Failed to download PDF.');
+    }
+  };
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -512,7 +652,61 @@ export default function AssistantPage() {
                 </div>
               </div>
             ) : (
-              messages.map((m, i) => <Message key={m.id || i} msg={m} />)
+              messages.map((m, i) => (
+                <Message 
+                  key={m.id || i} 
+                  msg={m} 
+                  token={token}
+                  onViewPdf={(url, title) => setViewerPdf({ url, title })}
+                  onDownloadPdf={handleDownloadPdf}
+                />
+              ))
+            )}
+
+            {/* Session Documents — list of PDFs attached to this session */}
+            {session?.documents?.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <Paperclip className="h-3 w-3" /> Attached Documents
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {session.documents.map((doc) => (
+                    <div key={doc.id} className="group bg-white border border-gray-200 rounded-2xl p-4 hover:border-amber-200 transition-all shadow-sm">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 
+                          ${doc.status === 'ready' ? 'bg-amber-50' : 'bg-gray-50'}`}>
+                          {doc.status === 'ready' ? (
+                            <FileText className="h-4 w-4 text-amber-600" />
+                          ) : (
+                            <Loader2 className="h-4 w-4 text-gray-400 animate-spin" />
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-gray-800 truncate">{doc.title}</p>
+                          <p className="text-[10px] text-gray-400 capitalize">{doc.status}</p>
+                        </div>
+                      </div>
+                      
+                      {doc.status === 'ready' && (
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => setViewerPdf({ url: getDocumentPdfUrl(doc.id), title: doc.title })}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900 text-[11px] font-medium text-white hover:bg-gray-700 transition-all"
+                          >
+                            <Eye className="h-3.5 w-3.5" /> View
+                          </button>
+                          <button 
+                            onClick={() => handleDownloadPdf(getDocumentPdfUrl(doc.id), doc.title, token)}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-gray-200 text-[11px] font-medium text-gray-700 hover:border-gray-300 transition-all"
+                          >
+                            <DownloadCloud className="h-3.5 w-3.5" /> Download
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {error && (
@@ -584,11 +778,21 @@ export default function AssistantPage() {
             </form>
 
             <p className="text-center text-[10px] text-gray-300 mt-2 tracking-wider uppercase">
-              JurisFind AI V2 · Groq &amp; Llama-3
+              JurisFind AI · Groq &amp; Llama-3
             </p>
           </div>
         </div>
       </div>
+      
+      {/* ── PDF Viewer Modal ── */}
+      {viewerPdf && (
+        <PdfViewerModal 
+          url={viewerPdf.url} 
+          title={viewerPdf.title}
+          token={token}
+          onClose={() => setViewerPdf(null)} 
+        />
+      )}
     </div>
   );
 }
