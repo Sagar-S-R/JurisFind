@@ -9,46 +9,49 @@ import Footer           from './components/Footer';
 // Pages
 import LandingPage   from './pages/LandingPage';
 import SearchPage    from './pages/SearchPage';
-import PdfAnalysis   from './pages/PdfAnalysis';
-import LegalChatbot  from './pages/LegalChatbot';
-import AnalysisPage  from './pages/AnalysisPage';
 import LoginPage     from './pages/LoginPage';
-import ChatPage      from './pages/ChatPage';
+import AssistantPage from './pages/AssistantPage';
 
-// Inner layout — hides Footer on /login
+// Inner layout — hides Footer on /login and /assistant
 function AppLayout() {
   const location = useLocation();
-  const hideFooter = location.pathname === '/login';
+  const isLoginPage = location.pathname === '/login';
+  const isAssistant = location.pathname.startsWith('/assistant');
+  const hideFooter = isLoginPage || isAssistant;
+  const hideNav = isLoginPage;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#EAEAE4' }}>
-      {/* Hide nav on login page too so it's fully standalone */}
-      {!hideFooter && <Navigation />}
-      <main>
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#EAEAE4' }}>
+      {!hideNav && <Navigation />}
+      <main className="flex-1">
         <Routes>
           {/* ── Fully public ─────────────────────────────────── */}
           <Route path="/"      element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />}   />
 
-          {/* ── Auth-gated ────────────────────────────────────── */}
+          {/* ── Auth-gated: Unified Assistant Workspace ───────── */}
           <Route path="/search" element={
             <ProtectedRoute><SearchPage /></ProtectedRoute>
           } />
-          <Route path="/analyze/:filename" element={
-            <ProtectedRoute><PdfAnalysis /></ProtectedRoute>
+          
+          <Route path="/assistant" element={
+            <ProtectedRoute><AssistantPage /></ProtectedRoute>
           } />
-          <Route path="/legal-chat" element={
-            <ProtectedRoute><LegalChatbot /></ProtectedRoute>
+          
+          <Route path="/assistant/:sessionId" element={
+            <ProtectedRoute><AssistantPage /></ProtectedRoute>
           } />
-          <Route path="/analysis" element={
-            <ProtectedRoute><AnalysisPage /></ProtectedRoute>
-          } />
-          {/* Legacy redirects */}
-          <Route path="/confidential-upload" element={<Navigate to="/analysis" replace />} />
-          <Route path="/documents"           element={<Navigate to="/analysis" replace />} />
-          <Route path="/chat/:sessionId" element={
-            <ProtectedRoute><ChatPage /></ProtectedRoute>
-          } />
+
+          {/* ── Legacy Redirects (V1 -> V2) ───────────────────── */}
+          <Route path="/analysis"            element={<Navigate to="/assistant" replace />} />
+          <Route path="/analyze/:filename"   element={<Navigate to="/assistant" replace />} />
+          <Route path="/legal-chat"          element={<Navigate to="/assistant" replace />} />
+          <Route path="/confidential-upload" element={<Navigate to="/assistant" replace />} />
+          <Route path="/documents"           element={<Navigate to="/assistant" replace />} />
+          <Route path="/chat/:sessionId"     element={<Navigate to="/assistant" replace />} />
+          
+          {/* Catch-all */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
       {!hideFooter && <Footer />}

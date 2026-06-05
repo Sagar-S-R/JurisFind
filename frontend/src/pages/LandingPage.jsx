@@ -40,10 +40,10 @@ function LandingPage() {
 
           {/* CTA Button */}
           <button
-            onClick={() => navigate(isAuthenticated ? '/analysis' : '/login')}
+            onClick={() => navigate(isAuthenticated ? '/assistant' : '/login')}
             className="inline-flex items-center gap-2 bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors shadow-sm"
           >
-            {isAuthenticated ? 'My Documents' : 'Start for free'}
+            {isAuthenticated ? 'Open Assistant' : 'Start for free'}
           </button>
         </div>
 
@@ -150,25 +150,19 @@ function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {[
               {
                 icon: Search,
                 title: 'Case Search',
-                desc: 'Instantly find relevant precedents from our comprehensive legal database.',
+                desc: 'Instantly find relevant precedents from our comprehensive legal database of 50k+ cases.',
                 path: '/search',
               },
               {
                 icon: MessageSquare,
                 title: 'AI Legal Assistant',
-                desc: 'Ask complex legal questions and get well-reasoned, cited answers.',
-                path: '/legal-chat',
-              },
-              {
-                icon: Upload,
-                title: 'Confidential Analysis',
-                desc: 'Upload private documents and receive detailed AI-powered analysis.',
-                path: '/analysis',
+                desc: 'Ask complex legal questions or upload confidential files for deep AI-powered analysis with citations.',
+                path: '/assistant',
               },
             ].map((f) => (
               <div
@@ -209,10 +203,10 @@ function LandingPage() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             {isAuthenticated ? (
               <button
-                onClick={() => navigate('/analysis')}
+                onClick={() => navigate('/assistant')}
                 className="bg-gray-900 text-white px-7 py-3 rounded-full text-sm font-medium hover:bg-gray-700 transition-colors"
               >
-                Go to My Documents →
+                Go to Assistant →
               </button>
             ) : (
               <>

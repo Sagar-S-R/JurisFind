@@ -88,7 +88,21 @@ class BlobStorageService:
         return f"documents/{user_id}/{uuid.uuid4()}.pdf"
 
     def _local_path(self, blob_path: str) -> Path:
-        """Resolve a blob_path to an absolute local filesystem path."""
+        """Resolve a blob_path to an absolute local filesystem path.
+
+        There are two classes of local paths:
+        - Uploaded user docs:   documents/{user_id}/{uuid}.pdf  → self._local_root/...
+        - Corpus legal cases:   data/pdfs/{filename}.pdf        → backend_root/data/pdfs/...
+        """
+        if os.path.isabs(blob_path):
+            return Path(blob_path)
+
+        # Corpus PDFs live at backend/data/pdfs/, not under uploaded_documents
+        # _api_dir is backend/app/, so parent is backend/
+        if blob_path.startswith("data/pdfs/"):
+            _backend_root = Path(__file__).resolve().parent.parent.parent
+            return _backend_root / blob_path
+
         return self._local_root / blob_path
 
     # ── Public API ───────────────────────────────────────────────────────────

@@ -1,10 +1,15 @@
 /**
- * Centralised API client for JurisFind
- * All requests target /api/* business-capability routes.
+ * Centralised API client for JurisFind.
+ * All requests target /api/* routes.
  * Automatically injects Authorization: Bearer <token> on authenticated calls.
  */
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+export const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
+
+/** Get the full URL for serving a legal case PDF. */
+export const getPdfUrl = (filename) =>
+  `${BASE}/api/pdf/${encodeURIComponent(filename)}`;
+
 
 async function request(path, options = {}, token = null) {
   const headers = { 'Content-Type': 'application/json', ...(options.headers ?? {}) };
@@ -12,11 +17,17 @@ async function request(path, options = {}, token = null) {
 
   const res = await fetch(`${BASE}${path}`, { ...options, headers });
 
+  // 204 No Content — no body to parse
+  if (res.status === 204) return null;
+
   // Parse body regardless of status so we can return error detail
   let body;
   const ct = res.headers.get('content-type') ?? '';
   if (ct.includes('application/json')) {
     body = await res.json();
+  } else if (ct.includes('text/event-stream')) {
+    // For SSE, we don't parse as JSON here; the caller handles the stream
+    return res; 
   } else {
     body = await res.text();
   }
@@ -55,16 +66,60 @@ export const casesApi = {
 
   get: (caseId) =>
     request(`/api/cases/${encodeURIComponent(caseId)}`),
+    
+  analyze: (caseId, token) =>
+    request(`/api/cases/${encodeURIComponent(caseId)}/analyze`, { method: 'POST' }, token),
+};
+
+// ── Sessions ─── /api/sessions/* ──────────────────────────────────────────
+export const sessionsApi = {
+  list: (token) =>
+    request('/api/sessions', {}, token),
+
+  create: (title, token) =>
+    request('/api/sessions', {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    }, token),
+
+  get: (id, token) =>
+    request(`/api/sessions/${id}`, {}, token),
+
+  rename: (id, title, token) =>
+    request(`/api/sessions/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ title }),
+    }, token),
+
+  delete: (id, token) =>
+    request(`/api/sessions/${id}`, { method: 'DELETE' }, token),
+
+  attachDocument: (sessionId, documentId, token) =>
+    request(`/api/sessions/${sessionId}/documents`, {
+      method: 'POST',
+      body: JSON.stringify({ document_id: documentId }),
+    }, token),
+
+  detachDocument: (sessionId, documentId, token) =>
+    request(`/api/sessions/${sessionId}/documents/${documentId}`, { method: 'DELETE' }, token),
+    
+  getMessages: (sessionId, token) =>
+    request(`/api/sessions/${sessionId}/messages`, {}, token),
+    
+  // POST for SSE stream
+  sendMessageStream: (sessionId, content, token) =>
+    request(`/api/sessions/${sessionId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }, token),
 };
 
 // ── Documents ─── /api/documents/* ────────────────────────────────────────
 export const docsApi = {
-  // Persistent file upload (multipart, is_confidential=false)
   upload: (file, token) => {
     const form = new FormData();
     form.append('file', file);
-    form.append('is_confidential', 'false');
-    return fetch(`${BASE}/api/documents`, {
+    return fetch(`${BASE}/api/documents/upload`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: form,
@@ -75,73 +130,12 @@ export const docsApi = {
     });
   },
 
-  // Ephemeral / confidential upload (multipart, is_confidential=true)
-  uploadConfidential: (file) => {
-    const form = new FormData();
-    form.append('file', file);
-    form.append('is_confidential', 'true');
-    return fetch(`${BASE}/api/documents`, {
-      method: 'POST',
-      body: form,
-    }).then(async (res) => {
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.detail ?? `HTTP ${res.status}`);
-      return body;
-    });
-  },
-
-  // Database case ingestion (JSON body)
-  retrieve: (caseId, token) =>
-    request('/api/documents/retrieve', {
-      method: 'POST',
-      body: JSON.stringify({ source_type: 'database', case_id: caseId, is_confidential: false }),
-    }, token),
-
-  // List all document sessions for current user
-  listAll: (token, page = 1, pageSize = 20) =>
-    request(`/api/documents?page=${page}&page_size=${pageSize}`, {}, token),
-
-  // Poll processing status
   getStatus: (documentId, token) =>
     request(`/api/documents/${documentId}/status`, {}, token),
-
-  // Unified analysis (summary + stats)
-  getAnalysis: (documentId, token = null) =>
-    request(`/api/documents/${documentId}/analysis`, {}, token),
-
-  // Find similar cases using an ephemeral document as query
-  getSimilarCases: (documentId, topK = 5) =>
-    request(`/api/documents/${encodeURIComponent(documentId)}/similar-cases?top_k=${topK}`),
-
-  // Delete session (persistent or ephemeral)
-  deleteSession: (documentId, token) =>
-    request(`/api/documents/${documentId}`, { method: 'DELETE' }, token),
-
-  // Q&A chat (persistent or ephemeral)
-  chat: (documentId, question, token = null) =>
-    request(`/api/documents/${encodeURIComponent(documentId)}/chat`, {
-      method: 'POST',
-      body: JSON.stringify({ question }),
-    }, token),
-
-  // Get conversation thread history
-  getChatHistory: (documentId, token) =>
-    request(`/api/documents/${documentId}/chat`, {}, token),
 };
 
-// ── Legal Chatbot ─── /api/chat/legal ─────────────────────────────────────
+// ── Backward Compat / Aliases ─────────────────────────────────────────────
 export const chatApi = {
-  // General legal domain chatbot
-  legal: (question) =>
-    request('/api/chat/legal', {
-      method: 'POST',
-      body: JSON.stringify({ question }),
-    }),
-
-  // Document-scoped chat (alias for docsApi.chat — kept for backward compat)
-  ask: (documentId, question, token) =>
-    docsApi.chat(documentId, question, token),
-
-  history: (documentId, token) =>
-    docsApi.getChatHistory(documentId, token),
+  ask: (sessionId, content, token) => sessionsApi.sendMessageStream(sessionId, content, token),
+  history: (sessionId, token) => sessionsApi.getMessages(sessionId, token),
 };

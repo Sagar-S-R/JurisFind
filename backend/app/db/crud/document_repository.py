@@ -1,98 +1,85 @@
 """
-Document repository for JurisFind.
+Document Repository — CRUD for Document (V2).
 
-Abstracts SQLAlchemy queries for DocumentSession and DocumentChunk models.
+Documents are standalone resources that can be shared across sessions.
 """
+import hashlib
+import uuid
+from typing import List, Optional
 
-from typing import List, Optional, Tuple
-from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.db.models import DocumentSession, DocumentChunk
+from app.db.models import Document
 
 
-class DocumentRepository:
-    """CRUD and query operations for DocumentSession and DocumentChunk."""
+def create_document(
+    db: Session,
+    title: str,
+    blob_path: str,
+    source_type: str,
+    owner_id: Optional[uuid.UUID] = None,
+    file_hash: Optional[str] = None,
+    file_size_bytes: Optional[int] = None,
+) -> Document:
+    doc = Document(
+        id=uuid.uuid4(),
+        owner_id=owner_id,
+        source_type=source_type,
+        title=title,
+        blob_path=blob_path,
+        file_hash=file_hash,
+        file_size_bytes=file_size_bytes,
+        status="uploaded",
+    )
+    db.add(doc)
+    db.commit()
+    db.refresh(doc)
+    return doc
 
-    # ── DocumentSession ───────────────────────────────────────────────────────
 
-    @staticmethod
-    def get_session(db: Session, session_id: str) -> Optional[DocumentSession]:
-        return (
-            db.query(DocumentSession)
-            .filter(DocumentSession.session_id == session_id)
-            .first()
-        )
+def get_document(db: Session, document_id: uuid.UUID) -> Optional[Document]:
+    return db.query(Document).filter(Document.id == document_id).first()
 
-    @staticmethod
-    def list_sessions_by_user(
-        db: Session,
-        user_id: str,
-        offset: int = 0,
-        limit: int = 20,
-    ) -> Tuple[List[DocumentSession], int]:
-        q = (
-            db.query(DocumentSession)
-            .filter(DocumentSession.user_id == user_id)
-            .order_by(desc(DocumentSession.created_at))
-        )
-        total = q.count()
-        sessions = q.offset(offset).limit(limit).all()
-        return sessions, total
 
-    @staticmethod
-    def create_session(db: Session, session: DocumentSession) -> DocumentSession:
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-        return session
+def get_document_by_hash(db: Session, file_hash: str) -> Optional[Document]:
+    """For deduplication: find an existing document with the same SHA-256 hash."""
+    return db.query(Document).filter(Document.file_hash == file_hash).first()
 
-    @staticmethod
-    def update_session(db: Session, session: DocumentSession) -> DocumentSession:
-        db.commit()
-        db.refresh(session)
-        return session
 
-    @staticmethod
-    def delete_session(db: Session, session: DocumentSession) -> None:
-        db.delete(session)
-        db.commit()
+def update_status(
+    db: Session,
+    document: Document,
+    status: str,
+    summary: Optional[str] = None,
+    error_message: Optional[str] = None,
+) -> Document:
+    document.status = status
+    if summary is not None:
+        document.summary = summary
+    if error_message is not None:
+        document.error_message = error_message
+    db.commit()
+    db.refresh(document)
+    return document
 
-    # ── DocumentChunk ─────────────────────────────────────────────────────────
 
-    @staticmethod
-    def get_chunks_by_session(
-        db: Session, session_id: str
-    ) -> List[DocumentChunk]:
-        return (
-            db.query(DocumentChunk)
-            .filter(DocumentChunk.session_id == session_id)
-            .order_by(DocumentChunk.page_number)
-            .all()
-        )
+def list_user_documents(
+    db: Session, owner_id: uuid.UUID, limit: int = 50
+) -> List[Document]:
+    return (
+        db.query(Document)
+        .filter(Document.owner_id == owner_id)
+        .order_by(Document.created_at.desc())
+        .limit(limit)
+        .all()
+    )
 
-    @staticmethod
-    def get_chunks_by_refs(
-        db: Session, embedding_refs: List[str]
-    ) -> List[DocumentChunk]:
-        return (
-            db.query(DocumentChunk)
-            .filter(DocumentChunk.embedding_reference.in_(embedding_refs))
-            .all()
-        )
 
-    @staticmethod
-    def get_embedding_refs(db: Session, session_id: str) -> List[str]:
-        rows = (
-            db.query(DocumentChunk.embedding_reference)
-            .filter(DocumentChunk.session_id == session_id)
-            .all()
-        )
-        return [r.embedding_reference for r in rows]
+def delete_document(db: Session, document: Document) -> None:
+    db.delete(document)
+    db.commit()
 
-    @staticmethod
-    def bulk_create_chunks(
-        db: Session, chunks: List[DocumentChunk]
-    ) -> None:
-        db.add_all(chunks)
-        db.commit()
+
+def sha256_of_bytes(data: bytes) -> str:
+    """Compute SHA-256 hex digest for deduplication."""
+    return hashlib.sha256(data).hexdigest()

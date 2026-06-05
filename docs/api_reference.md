@@ -1,133 +1,28 @@
 # API Reference
 
-## Overview
-
-JurisFind provides a REST API built with FastAPI. Interactive documentation available at `/docs` when running locally or in production.
-
-## Base URL
-
-Local development:
-```
-http://localhost:8000/api
-```
-
-Production:
-```
-http://20.186.113.106/api
-```
-
-Interactive Swagger UI (production): `http://20.186.113.106/docs`
-Interactive Swagger UI (local): `http://localhost:8000/docs`
-
-## Endpoints
-
-### Health Check
-- **GET** `/health`
-- **Response**:
-  ```json
-  {"status": "healthy", "message": "Legal case search service is running", "total_cases": 46456}
-  ```
-
-### Search
-- **POST** `/search`
-- **Body**:
-  ```json
-  {"query": "breach of contract", "top_k": 5}
-  ```
-- **Response**:
-  ```json
-  {
-    "success": true,
-    "query": "breach of contract",
-    "results": [
-      {"filename": "case_001.pdf", "score": 0.94, "similarity_percentage": 94.3}
-    ],
-    "total_results": 5
-  }
-  ```
-
-### Unified Document Analysis
-- **POST** `/unified/analyze`
-- **Body**:
-  ```json
-  {"filename": "case_001.pdf", "source": "database"}
-  ```
-  `source` is `"database"` for PDFs from the main index or `"uploaded"` for a confidential upload.
-- **Response**: `{success, filename, text_length, embedding_status, summary, message}`
-
-### Unified Document Q&A
-- **POST** `/unified/ask`
-- **Body**:
-  ```json
-  {"filename": "case_001.pdf", "question": "What was the ruling?", "source": "database"}
-  ```
-- **Response**: `{success, filename, question, answer}`
-
-### Serve PDF
-- **GET** `/pdf/{filename}`
-- **Response**: PDF binary stream (`application/pdf`). Downloads from Azure Blob Storage, or falls back to local `api/data/pdfs/`.
-
-### Document Statistics
-- **GET** `/document-stats/{filename}`
-- **Response**: `{success, filename, stats}` with embedding metadata for the analyzed document.
-
-### Upload Confidential PDF
-- **POST** `/upload-confidential-pdf`
-- **Body**: `multipart/form-data` with a `file` field containing the PDF
-- **Response**: `{success, filename, message}`
-- The file is saved to the ephemeral `confidential_tmp` Docker volume and never reaches Blob Storage.
-
-### Retrieve Similar Cases
-- **POST** `/retrieve-similar-cases?filename={name}&top_k=5`
-- Finds cases in the main FAISS index semantically similar to the uploaded confidential PDF.
-- **Response**: `{success, filename, similar_cases, total_found}`
-
-### Cleanup Confidential Session
-- **DELETE** `/cleanup-confidential/{filename}`
-- **Response**: `{success, message}` — deletes the uploaded PDF and its embeddings.
-
-### Legal Chatbot
-- **POST** `/legal-chat`
-- **Body**:
-  ```json
-  {"question": "What constitutes fair use under copyright law?"}
-  ```
-- **Response**: `{success, response, is_legal, domain_filtered}`
-  - `is_legal`: `false` if the question was detected as non-legal and filtered.
-
-### Additional Utility Endpoints
-- **GET** `/list-pdfs` — list all available PDFs in Blob or local storage
-- **POST** `/analyze-document?filename={name}` — analyze a single database PDF (legacy route)
-- **POST** `/ask-question` `{filename, question}` — Q&A on a database PDF (legacy route)
-- **DELETE** `/cleanup-embeddings/{filename}` — remove cached embeddings for a document
-- **DELETE** `/legal-chat/clear` — reset chatbot conversation history
-- **GET** `/legal-chat/stats` — chatbot session statistics
-- **POST** `/upload-pdf-to-azure` `multipart/form-data` — upload a PDF to Blob Storage directly
-- **POST** `/generate-embeddings-from-azure` — rebuild FAISS index from Blob PDFs (admin operation)
+All endpoints are prefixed with `/api`. Authentication is required for most endpoints using JWT Bearer tokens.
 
 ## Authentication
+- `POST /auth/register`: Register a new user.
+- `POST /auth/login`: Authenticate and receive a JWT token.
+- `GET /auth/me`: Retrieve current user profile.
 
-Currently no authentication required. For production, implement API keys.
+## Sessions & Chat
+- `POST /sessions`: Create a new chat session.
+- `GET /sessions`: List all sessions for the current user.
+- `GET /sessions/{id}`: Retrieve a specific session.
+- `DELETE /sessions/{id}`: Delete a session and its associated messages.
+- `GET /sessions/{id}/messages`: Retrieve chat history for a session.
+- `POST /sessions/{id}/messages`: Send a message to the AI. Returns an SSE (Server-Sent Events) stream containing the AI's response.
+- `POST /sessions/{id}/documents`: Attach an uploaded document to a session for RAG context.
+- `DELETE /sessions/{session_id}/documents/{document_id}`: Detach a document from a session.
 
-## Error Handling
+## Documents
+- `POST /documents`: Upload a PDF document. Enqueues a Celery task for processing.
+- `GET /documents`: List user's uploaded documents.
+- `GET /documents/{id}/status`: Poll the processing status of a document (`uploaded`, `processing`, `ready`, `failed`).
+- `DELETE /documents/{id}`: Delete a document and its associated vectors.
 
-All endpoints return standard HTTP status codes:
-- `200`: Success
-- `400`: Bad Request
-- `404`: Not Found
-- `500`: Internal Server Error
-
-Error responses include:
-```json
-{
-  "detail": "Error description"
-}
-```
-
-## Rate Limiting
-
-Nginx enforces 30 requests per minute per IP by default. Requests exceeding this limit receive HTTP 429. The limit is configured in `nginx.conf` and can be adjusted on the VM.
-
-## CORS
-
-Configured to allow requests from frontend origin.
+## Search
+- `POST /cases/search`: Semantic search across the main legal corpus.
+- `POST /cases/{case_id}/analyze`: Helper endpoint that creates a session, attaches a specific legal case document to it, and initiates background processing. Returns the `session_id`.

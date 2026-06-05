@@ -78,9 +78,9 @@ class LegalCaseSearcher:
         print("🤖 Loading sentence transformer model...")
         self.model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
         
-        # Load FAISS index
+        # Load FAISS index with MEMORY MAPPING to prevent Windows Pagefile exhaustion (os error 1455)
         print("🔍 Loading FAISS index...")
-        self.index = faiss.read_index(index_path)
+        self.index = faiss.read_index(index_path, faiss.IO_FLAG_MMAP)
         
         # Load file name mapping
         print("📋 Loading file name mapping...")

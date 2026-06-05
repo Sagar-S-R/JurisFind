@@ -10,11 +10,19 @@ import os
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Depends
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.services.search_service import get_searcher
+from sqlalchemy.orm import Session
+from app.db.session import get_db
+from app.api.dependencies.auth import get_current_user
+from app.db.models import User, Document
+from app.db.crud import document_repository as doc_repo
+from app.db.crud import session_repository as session_repo
+from app.db.crud import session_document_repository as sd_repo
+from app.workers.document_worker import process_document_task
 
 logger = logging.getLogger(__name__)
 
@@ -69,13 +77,9 @@ def _filename_to_title(filename: str) -> str:
     )
 
 
-def _get_pdf_base_url() -> str:
-    """Return the configured base URL for PDF file access."""
-    base = os.getenv("VITE_API_BASE_URL", "")
-    return base
-
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
+
 
 @router.get("/health", response_model=HealthResponse, summary="System health check")
 async def health_check():
@@ -205,6 +209,61 @@ async def get_case(case_id: str):
         title=_filename_to_title(case_id),
         pdf_url=pdf_url,
     )
+
+
+@router.post(
+    "/cases/{case_id:path}/analyze",
+    summary="Create an Assistant Session from a Legal Case",
+    status_code=201
+)
+async def analyze_case(
+    case_id: str,
+    db: Session = Depends(get_db),
+    user_id: str = Depends(get_current_user)
+):
+    """
+    Take a case from the global search corpus, ensure it has a Document record,
+    create a new AssistantSession, attach the Document, and return the Session ID.
+    """
+    import uuid
+    import os
+    title = _filename_to_title(case_id)
+    
+    # Use absolute path based on project structure to ensure worker reliability
+    # Assuming corpus is at backend/data/pdfs/
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    abs_pdf_path = os.path.join(base_dir, "data", "pdfs", case_id)
+    
+    # We store the absolute path as the blob_path for local corpus cases
+    blob_path = abs_pdf_path
+
+    # 1. Ensure Document exists (owner_id is NULL for corpus cases)
+    doc = db.query(Document).filter(
+        Document.source_type == "legal_case",
+        Document.blob_path == blob_path
+    ).first()
+    
+    if not doc:
+        # Create it.
+        doc = doc_repo.create_document(
+            db=db,
+            title=title,
+            blob_path=blob_path,
+            source_type="legal_case",
+            owner_id=None
+        )
+        process_document_task.delay(document_id=str(doc.id), blob_path=blob_path)
+    elif doc.status != "ready":
+        # Retry processing if it previously failed or is stuck in uploaded
+        process_document_task.delay(document_id=str(doc.id), blob_path=blob_path)
+
+    # 2. Create Session
+    session = session_repo.create_session(db, uuid.UUID(user_id), title=f"Analysis: {title}")
+
+    # 3. Attach Document
+    sd_repo.attach_document(db, session.id, doc.id)
+
+    return {"session_id": session.id, "document_id": doc.id}
 
 
 @router.get(

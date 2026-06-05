@@ -96,13 +96,13 @@ def create_app() -> FastAPI:
     # ── API Business-Capability Routes ────────────────────────────────────────
     from app.api.auth import router as auth_router
     from app.api.cases import router as cases_router
+    from app.api.sessions import router as sessions_router
     from app.api.documents import router as documents_router
-    from app.api.chat import router as chat_router
 
     app.include_router(auth_router, prefix="/api")
     app.include_router(cases_router, prefix="/api")
+    app.include_router(sessions_router, prefix="/api")
     app.include_router(documents_router, prefix="/api")
-    app.include_router(chat_router, prefix="/api")
 
     # ── Root endpoint ─────────────────────────────────────────────────────────
     @app.get("/", tags=["Root"])
@@ -113,7 +113,7 @@ def create_app() -> FastAPI:
             else "Local Files"
         )
         return {
-            "message": "JurisFind API - Legal AI Platform",
+            "message": "JurisFind API - Legal AI Platform (V2)",
             "version": "2.0.0",
             "storage_backend": storage_info,
             "api_endpoints": {
@@ -123,14 +123,19 @@ def create_app() -> FastAPI:
                 "auth_login": "/api/auth/login (POST)",
                 "cases_search": "/api/cases/search (POST/GET)",
                 "cases_get": "/api/cases/{case_id} (GET)",
+                "cases_analyze": "/api/cases/{case_id}/analyze (POST)",
                 "pdf_files": "/api/pdf/{filename} (GET)",
-                "documents_ingest": "/api/documents (POST)",
-                "documents_list": "/api/documents (GET)",
+                "sessions_create": "/api/sessions (POST)",
+                "sessions_list": "/api/sessions (GET)",
+                "sessions_get": "/api/sessions/{id} (GET)",
+                "sessions_rename": "/api/sessions/{id} (PATCH)",
+                "sessions_delete": "/api/sessions/{id} (DELETE)",
+                "messages_send": "/api/sessions/{id}/messages (POST)",
+                "messages_list": "/api/sessions/{id}/messages (GET)",
+                "documents_upload": "/api/documents/upload (POST)",
                 "documents_status": "/api/documents/{id}/status (GET)",
-                "documents_analysis": "/api/documents/{id}/analysis (GET)",
-                "documents_chat": "/api/documents/{id}/chat (POST/GET)",
-                "documents_similar": "/api/documents/{id}/similar-cases (GET)",
-                "chat_legal": "/api/chat/legal (POST)",
+                "session_doc_attach": "/api/sessions/{id}/documents (POST)",
+                "session_doc_detach": "/api/sessions/{id}/documents/{doc_id} (DELETE)",
             },
             "azure_features": {
                 "enabled": bool(os.getenv("AZURE_STORAGE_CONNECTION_STRING")),

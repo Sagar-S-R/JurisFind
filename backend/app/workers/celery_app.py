@@ -50,10 +50,12 @@ celery_app = Celery(
     "jurisfind_worker",
     broker=_BROKER_URL,
     backend=_RESULT_BACKEND,
+    include=["app.workers.document_worker"]
 )
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 celery_app.conf.update(
+    broker_connection_retry_on_startup=True,
     # Serialization — JSON keeps tasks human-readable in the broker UI
     task_serializer="json",
     result_serializer="json",
@@ -82,7 +84,7 @@ celery_app.conf.update(
 )
 
 # ── Auto-discover tasks inside the api.workers package ───────────────────────
-celery_app.autodiscover_tasks(["workers"])
+# (Removed autodiscover_tasks since we explicitly defined 'include' above)
 
 logger.info(
     "Celery app '%s' configured | broker=%s",

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Scale, Menu, X, LogOut, Files, ChevronDown, User } from 'lucide-react';
+import { Scale, Menu, X, LogOut, MessageSquare, ChevronDown, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Navigation() {
@@ -12,8 +12,7 @@ export default function Navigation() {
 
   const navLinks = [
     { path: '/search',    label: 'Search'    },
-    { path: '/legal-chat', label: 'Assistant' },
-    { path: '/analysis',  label: 'Analysis'  },
+    { path: '/assistant', label: 'Assistant' },
   ];
 
   // Only show nav links when authenticated; unauthenticated users just see Sign in / Get started
@@ -83,11 +82,11 @@ export default function Navigation() {
                         <p className="text-xs text-gray-400">Signed in as</p>
                         <p className="text-sm font-medium text-gray-900 truncate">{user?.email}</p>
                       </div>
-                      <Link to="/analysis" onClick={() => setUserMenuOpen(false)}
+                      <Link to="/assistant" onClick={() => setUserMenuOpen(false)}
                         className="flex items-center gap-2.5 px-4 py-2 text-sm text-gray-700
                           hover:bg-gray-50 transition-colors">
-                        <Files className="h-4 w-4 text-gray-400" />
-                        My Analysis
+                        <MessageSquare className="h-4 w-4 text-gray-400" />
+                        My Assistant
                       </Link>
                       <button onClick={handleLogout}
                         className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-red-600

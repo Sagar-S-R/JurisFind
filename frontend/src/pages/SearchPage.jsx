@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, FileText, Clock, Users, Brain, Eye, Download } from 'lucide-react';
-import { getApiUrl, getPdfUrl } from '../config/api';
+import { Search, FileText, Clock, Users, Brain, Eye, Download, Loader2 } from 'lucide-react';
+import { getPdfUrl } from '../config/apiClient';
+import { casesApi } from '../config/apiClient';
+import { useAuth } from '../context/AuthContext';
 
 function SearchPage() {
   const navigate = useNavigate();
+  const { token } = useAuth();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [analyzingId, setAnalyzingId] = useState(null);
 
   // Convert raw filenames like "abc__court__2019_Judgement.pdf" into readable titles
   const filenameToTitle = (filename) => {
@@ -26,20 +30,29 @@ function SearchPage() {
 
     setLoading(true);
     try {
-      const response = await fetch(getApiUrl('/api/cases/search'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ query, top_k: 10 }),
-      });
-      const data = await response.json();
+      const data = await casesApi.search(query, 10);
       setResults(data.results || []);
     } catch (error) {
       console.error('Search error:', error);
       setResults([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAnalyze = async (caseId) => {
+    setAnalyzingId(caseId);
+    try {
+      // V2: Create session, attach doc, get session_id
+      const data = await casesApi.analyze(caseId, token);
+      if (data.session_id) {
+        navigate(`/assistant/${data.session_id}`);
+      }
+    } catch (err) {
+      console.error('Analyze error:', err);
+      alert('Failed to start analysis session.');
+    } finally {
+      setAnalyzingId(null);
     }
   };
 
@@ -85,7 +98,7 @@ function SearchPage() {
                 >
                   {loading ? (
                     <div className="flex items-center gap-1.5">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <Loader2 className="animate-spin h-4 w-4" />
                       <span className="hidden sm:inline">Searching</span>
                     </div>
                   ) : (
@@ -138,64 +151,48 @@ function SearchPage() {
             </div>
             
             <div className="space-y-3">
-              {results.map((result, index) => (
-                <div key={index} className="bg-white border border-gray-200/60 rounded-2xl p-5 sm:p-6
-                                          hover:border-gray-300 hover:shadow-sm transition-all duration-200">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
-                    <h4 className="text-sm font-semibold text-gray-900 flex-1">
-                      {result.title || filenameToTitle(result.case_id || result.filename)}
-                    </h4>
-                    <span className="self-start bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap">
-                      {Math.round((result.similarity_percentage || result.score * 100 || 80))}% match
-                    </span>
+              {results.map((result, index) => {
+                const id = result.case_id || result.filename;
+                const isAnalyzing = analyzingId === id;
+                
+                return (
+                  <div key={index} className="bg-white border border-gray-200/60 rounded-2xl p-5 sm:p-6
+                                            hover:border-gray-300 hover:shadow-sm transition-all duration-200">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+                      <h4 className="text-sm font-semibold text-gray-900 flex-1">
+                        {result.title || filenameToTitle(id)}
+                      </h4>
+                      <span className="self-start bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full text-xs font-medium whitespace-nowrap">
+                        {Math.round((result.similarity_percentage || result.score * 100 || 80))}% match
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mb-4 leading-relaxed line-clamp-3">
+                      {result.content || result.text || `Case ID: ${id}`}
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 text-white
+                          px-4 py-2 rounded-full text-xs font-medium transition-colors disabled:opacity-50"
+                        onClick={() => handleAnalyze(id)}
+                        disabled={isAnalyzing}
+                      >
+                        {isAnalyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5" />}
+                        <span>Analyze in Assistant</span>
+                      </button>
+                      <button
+                        className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300
+                          text-gray-700 px-4 py-2 rounded-full text-xs font-medium transition-colors"
+                        onClick={() => {
+                          if (id) window.open(getPdfUrl(id), '_blank');
+                        }}
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        <span>View PDF</span>
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-500 mb-4 leading-relaxed line-clamp-3">
-                    {result.content || result.text || (
-                      (result.case_id || result.filename)
-                        ? `File: ${filenameToTitle(result.case_id || result.filename)}`
-                        : 'Case content and legal analysis...'
-                    )}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      className="flex items-center gap-1.5 bg-gray-900 hover:bg-gray-700 text-white
-                        px-4 py-2 rounded-full text-xs font-medium transition-colors"
-                      onClick={() => {
-                        const id = result.case_id || result.filename;
-                        if (id) {
-                          navigate(`/analyze/${encodeURIComponent(id)}`, {
-                            state: { from: '/search' }
-                          });
-                        }
-                      }}
-                    >
-                      <Brain className="h-3.5 w-3.5" />
-                      <span>Analyze</span>
-                    </button>
-                    <button
-                      className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300
-                        text-gray-700 px-4 py-2 rounded-full text-xs font-medium transition-colors"
-                      onClick={() => {
-                        const id = result.case_id || result.filename;
-                        if (id) window.open(getPdfUrl(id), '_blank');
-                      }}
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>View PDF</span>
-                    </button>
-                    <a
-                      href={(result.case_id || result.filename) ? getPdfUrl(result.case_id || result.filename) : '#'}
-                      download={result.case_id || result.filename}
-                      className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300
-                        text-gray-700 px-4 py-2 rounded-full text-xs font-medium transition-colors"
-                      onClick={(e) => { if (!(result.case_id || result.filename)) e.preventDefault(); }}
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                      <span>Download</span>
-                    </a>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

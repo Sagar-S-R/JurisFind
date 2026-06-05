@@ -19,8 +19,30 @@ networks:
 volumes:
   confidential_tmp:
   rabbitmq_data:
+  jurisfind_db_data:
 
 services:
+
+  # ── PostgreSQL with pgvector ──────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: jurisfind_db
+    restart: always
+    ports:
+      - "5433:5432"  # Exposed on 5433 to avoid conflicts with native Windows Postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: jurisfind
+    volumes:
+      - jurisfind_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - jurisfind_net
 
   # ── RabbitMQ (Message Broker) ─────────────────────────────────────────────
   rabbitmq:
