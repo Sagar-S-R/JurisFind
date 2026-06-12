@@ -116,6 +116,15 @@ temp_analysis/
 
 uvicorn
 docs/temp/
+docs/audits/
+# Scripts — ignore large data files but track the actual scripts
+backend/scripts/qdrant_ingestion/embeddings.npy
+backend/scripts/qdrant_ingestion/chunk_ids.json
+backend/scripts/qdrant_ingestion/*.log
+backend/scripts/qdrant_ingestion/kaggle_export/
+backend/scripts/audit/
+backend/scripts/faiss/
 
 agents.md
 claude.md
+
