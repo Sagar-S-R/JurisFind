@@ -98,7 +98,7 @@ def create_app() -> FastAPI:
     from app.api.cases import router as cases_router
     from app.api.sessions import router as sessions_router
     from app.api.documents import router as documents_router
-    from app.api.routes.search import router as search_router
+    from app.api.search import router as search_router
 
     app.include_router(auth_router, prefix="/api")
     app.include_router(cases_router, prefix="/api")
