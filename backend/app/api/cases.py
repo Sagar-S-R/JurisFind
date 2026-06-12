@@ -224,43 +224,64 @@ async def analyze_case(
     """
     Take a case from the global search corpus, ensure it has a Document record,
     create a new AssistantSession, attach the Document, and return the Session ID.
-    """
-    import uuid
-    import os
-    title = _filename_to_title(case_id)
-    
-    # Use absolute path based on project structure to ensure worker reliability
-    # Assuming corpus is at backend/data/pdfs/
-    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    abs_pdf_path = os.path.join(base_dir, "data", "pdfs", case_id)
-    
-    # We store the absolute path as the blob_path for local corpus cases
-    blob_path = abs_pdf_path
 
-    # 1. Ensure Document exists (owner_id is NULL for corpus cases)
+    case_id can be either:
+      - A UUID (from Qdrant/new search) → we look up the real filename from legal_documents
+      - A filename (legacy FAISS flow)   → used directly as the blob filename
+    """
+    import uuid as _uuid
+    from sqlalchemy import text
+
+    base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+    # ── Resolve filename: UUID lookup first, fall back to treating case_id as filename ──
+    actual_filename = None
+    try:
+        # If case_id is a valid UUID, look up the real PDF filename from legal_documents
+        _uuid.UUID(case_id)  # raises ValueError if not a UUID
+        row = db.execute(
+            text("SELECT filename, title FROM legal_documents WHERE id = CAST(:cid AS uuid)"),
+            {"cid": case_id}
+        ).fetchone()
+        if row:
+            actual_filename = row[0]
+            corpus_title = row[1] or _filename_to_title(actual_filename)
+        else:
+            raise HTTPException(status_code=404, detail=f"No case found with id={case_id}")
+    except ValueError:
+        # case_id is not a UUID — treat it as a raw filename (legacy FAISS path)
+        actual_filename = case_id
+        corpus_title = _filename_to_title(case_id)
+
+    abs_pdf_path = os.path.join(base_dir, "data", "pdfs", actual_filename)
+
+    # Verify the PDF actually exists before creating a document record
+    if not os.path.exists(abs_pdf_path):
+        raise HTTPException(
+            status_code=404,
+            detail=f"PDF file not found on disk: {actual_filename}"
+        )
+
+    # ── Ensure Document record exists ──────────────────────────────────────────
     doc = db.query(Document).filter(
         Document.source_type == "legal_case",
-        Document.blob_path == blob_path
+        Document.blob_path == abs_pdf_path
     ).first()
-    
+
     if not doc:
-        # Create it.
         doc = doc_repo.create_document(
             db=db,
-            title=title,
-            blob_path=blob_path,
+            title=corpus_title,
+            blob_path=abs_pdf_path,
             source_type="legal_case",
             owner_id=None
         )
-        process_document_task.delay(document_id=str(doc.id), blob_path=blob_path)
+        process_document_task.delay(document_id=str(doc.id), blob_path=abs_pdf_path)
     elif doc.status != "ready":
-        # Retry processing if it previously failed or is stuck in uploaded
-        process_document_task.delay(document_id=str(doc.id), blob_path=blob_path)
+        process_document_task.delay(document_id=str(doc.id), blob_path=abs_pdf_path)
 
-    # 2. Create Session
-    session = session_repo.create_session(db, uuid.UUID(user_id), title=f"Analysis: {title}")
-
-    # 3. Attach Document
+    # ── Create Session + attach Document ───────────────────────────────────────
+    session = session_repo.create_session(db, _uuid.UUID(user_id), title=f"Analysis: {corpus_title}")
     sd_repo.attach_document(db, session.id, doc.id)
 
     return {"session_id": session.id, "document_id": doc.id}

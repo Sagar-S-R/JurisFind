@@ -98,11 +98,13 @@ def create_app() -> FastAPI:
     from app.api.cases import router as cases_router
     from app.api.sessions import router as sessions_router
     from app.api.documents import router as documents_router
+    from app.api.routes.search import router as search_router
 
     app.include_router(auth_router, prefix="/api")
     app.include_router(cases_router, prefix="/api")
     app.include_router(sessions_router, prefix="/api")
     app.include_router(documents_router, prefix="/api")
+    app.include_router(search_router, prefix="/api")
 
     # ── Root endpoint ─────────────────────────────────────────────────────────
     @app.get("/", tags=["Root"])
@@ -117,6 +119,11 @@ def create_app() -> FastAPI:
             "version": "2.0.0",
             "storage_backend": storage_info,
             "api_endpoints": {
+                "search_semantic": "/api/search (POST)",
+                "search_by_name": "/api/search/by-name (POST)",
+                "search_case_detail": "/api/search/case/{document_id} (GET)",
+                "search_similar": "/api/search/similar/{document_id} (GET)",
+                "search_ask": "/api/search/ask (POST)",
                 "docs": "/docs",
                 "health": "/api/health (GET)",
                 "auth_register": "/api/auth/register (POST)",

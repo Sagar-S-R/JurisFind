@@ -8,7 +8,7 @@ export const BASE = import.meta.env.VITE_API_BASE_URL ?? '';
 
 /** Get the full URL for serving a corpus case PDF (search page — no auth needed). */
 export const getPdfUrl = (filename) =>
-  `${BASE}/api/pdf/${encodeURIComponent(filename)}`;
+  `${BASE}/api/search/pdf/${encodeURIComponent(filename)}`;
 
 /** Get the full URL for serving any document PDF (assistant citations — requires auth token). */
 export const getDocumentPdfUrl = (documentId) =>
@@ -62,11 +62,11 @@ export const authApi = {
 
 // ── Cases ─── /api/cases/* ────────────────────────────────────────────────
 export const casesApi = {
-  search: (query, top_k = 10) =>
-    request('/api/cases/search', {
+  search: (query, token, top_k = 10) =>
+    request('/api/search', {
       method: 'POST',
       body: JSON.stringify({ query, top_k }),
-    }),
+    }, token),
 
   get: (caseId) =>
     request(`/api/cases/${encodeURIComponent(caseId)}`),

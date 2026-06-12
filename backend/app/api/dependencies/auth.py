@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from services.auth_service import auth_service, AuthenticationError
+from app.services.auth_service import auth_service, AuthenticationError
 
 # OAuth2 / Bearer token extractors
 _bearer_scheme = HTTPBearer(

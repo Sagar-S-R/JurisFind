@@ -95,7 +95,7 @@ function SearchPage() {
 
     setLoading(true);
     try {
-      const data = await casesApi.search(query, 10);
+      const data = await casesApi.search(query, token, 10);
       setResults(data.results || []);
     } catch (error) {
       console.error('Search error:', error);
@@ -217,13 +217,13 @@ function SearchPage() {
             
             <div className="space-y-3">
               {results.map((result, index) => {
-                const id = result.case_id || result.filename;
+                const id = result.document_id || result.case_id || result.filename;
                 const isAnalyzing = analyzingId === id;
                 
                 return (
                   <div key={index} className="bg-white border border-gray-200/60 rounded-2xl p-5 sm:p-6
                                             hover:border-gray-300 hover:shadow-sm transition-all duration-200">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-2">
                       <h4 className="text-sm font-semibold text-gray-900 flex-1">
                         {result.title || filenameToTitle(id)}
                       </h4>
@@ -231,8 +231,17 @@ function SearchPage() {
                         {Math.round((result.similarity_percentage || result.score * 100 || 80))}% match
                       </span>
                     </div>
+                    {(result.court || result.year) && (
+                      <div className="text-xs text-gray-400 mb-3 flex flex-wrap gap-2">
+                        {result.court && <span className="font-medium text-gray-600">{result.court}</span>}
+                        {result.court && result.year && <span>•</span>}
+                        {result.year && <span>{result.year}</span>}
+                        {result.case_type && <span>•</span>}
+                        {result.case_type && <span>{result.case_type}</span>}
+                      </div>
+                    )}
                     <p className="text-sm text-gray-500 mb-4 leading-relaxed line-clamp-3">
-                      {result.content || result.text || `Case ID: ${id}`}
+                      {result.top_chunk?.chunk_text || result.content || result.text || `Case ID: ${id}`}
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
                       <button
