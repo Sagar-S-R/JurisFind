@@ -20,9 +20,10 @@ def create_document(
     owner_id: Optional[uuid.UUID] = None,
     file_hash: Optional[str] = None,
     file_size_bytes: Optional[int] = None,
+    doc_id: Optional[uuid.UUID] = None,
 ) -> Document:
     doc = Document(
-        id=uuid.uuid4(),
+        id=doc_id or uuid.uuid4(),
         owner_id=owner_id,
         source_type=source_type,
         title=title,

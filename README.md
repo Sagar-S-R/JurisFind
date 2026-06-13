@@ -1,71 +1,150 @@
 # JurisFind
 
-AI-powered legal document search and analysis platform. Search across 46,456+ legal cases using semantic similarity, read AI-generated summaries, ask follow-up questions, upload confidential documents for isolated analysis, and consult a legal domain chatbot. Backed by a FastAPI backend, PostgreSQL with pgvector, Celery for asynchronous processing, and a React frontend.
+AI-powered legal research and conversational analysis platform. Search across 46,000+ indexed Indian Supreme Court judgments using semantic similarity, chat with specific cases or your own uploaded PDFs, and ask general legal questions — all from a single persistent workspace backed by a LangGraph agent orchestrator.
 
 ## Table of Contents
 
 - [Features](#features)
 - [Architecture](#architecture)
 - [Tech Stack](#tech-stack)
-- [Quick Start](#quick-start)
 - [Project Structure](#project-structure)
+- [Quick Start](#quick-start)
 - [Environment Variables](#environment-variables)
 - [Documentation](#documentation)
 
 ## Features
 
-### Semantic Search
-Natural language search over indexed legal cases. Queries are embedded using `sentence-transformers/all-mpnet-base-v2` and compared against a FAISS index using cosine similarity. Results are ranked by relevance score.
+**Semantic Search**
+Natural language search over 46,456 pre-indexed Indian Supreme Court judgments. Queries are embedded using `sentence-transformers/all-mpnet-base-v2` and compared against a Qdrant vector database (1.1M+ vectors). Results are ranked by cosine similarity and include metadata filters for court, year, state, and case type.
 
-### PDF Analysis and Contextual Q&A
-Clicking any search result opens a document analysis view. The system asynchronously processes the PDF using Celery workers: extracting text with PyMuPDF, chunking it, generating embeddings, and storing them in PostgreSQL using pgvector. Once processed, users can ask follow-up questions against the document context using a Retrieval-Augmented Generation (RAG) pipeline backed by Groq LLMs.
+**Agentic RAG Chat**
+Every chat request flows through a LangGraph state machine that classifies intent and routes to one of three execution paths: general legal knowledge, document-specific RAG, or full corpus search. The classifier and the answer node together make exactly two LLM calls per request. Citations are built directly from Qdrant payload metadata — no LLM extraction.
 
-### Confidential Document Analysis
-Users can upload their own PDFs directly from the browser. The file is saved locally, processed asynchronously by Celery, and its embeddings are stored in the database. Users can chat with their documents in persistent, stateful sessions. 
+**Document-Specific Chat**
+Clicking Analyze on a corpus search result or uploading a private PDF attaches it to a chat session. The agent automatically searches the correct vector store: Qdrant (filtered by document ID) for corpus cases, pgvector for private uploads. Both paths produce cited, grounded answers.
 
-### Legal Chatbot
-A general-purpose AI assistant pre-prompted for legal domain queries. Accepts a message and conversation history, passes them through a LangChain agent backed by Groq, and returns a streamed response. Features a guardrail to reject non-legal queries.
+**Private PDF Upload**
+Users can upload their own confidential PDFs. A Celery worker asynchronously extracts text via PyMuPDF, chunks it with LangChain, generates 768-dim embeddings, and stores them in the private pgvector store isolated by `owner_id`. Private documents never interact with the shared Qdrant corpus.
+
+**Session Management**
+Conversations are persistent and multi-document. Each session stores ordered messages, attached documents, and citations in PostgreSQL. Sessions are strictly isolated by `user_id` and `session_id` — every API request re-validates JWT ownership before any data is read or written.
 
 ## Architecture
 
-The system relies on a decoupled architecture for performance and scalability:
+```
+User Request (POST /api/sessions/{id}/messages)
+        |
+        v
+  FastAPI Endpoint
+  - Verify JWT + session ownership
+  - Persist user message to DB
+  - Load chat history from DB
+  - Collect attached document IDs
+        |
+        v
+  LangGraph State Machine (juris_graph)
+        |
+   classifier_node  <-- LLM Call 1 (intent + guardrail)
+        |
+   -----+------------------------------------------
+   |                  |                   |        |
+   v                  v                   v        v
+general_chat    document_chat      corpus_search  blocked
+(LLM Call 2)   (Qdrant or         (Qdrant full   (rejection
+                pgvector + LLM)    scan + LLM)    message)
+        |
+        v
+  Citations built from Qdrant payload (no LLM)
+        |
+        v
+  SSE stream to frontend → save to DB
+```
 
-- **Web Server:** FastAPI handles incoming HTTP requests, session management, and streaming LLM responses via Server-Sent Events (SSE).
-- **Asynchronous Processing:** Celery workers (backed by RabbitMQ) handle heavy background tasks such as PDF text extraction, chunking, and embedding generation.
-- **Database:** PostgreSQL stores user data, chat sessions, messages, and document metadata. The `pgvector` extension is used to store and query document embeddings natively in the database.
-- **Frontend:** React application that provides the UI for semantic search, document management, and chat interfaces.
+Infrastructure layers:
+
+- **FastAPI** handles HTTP, JWT auth, session ownership, and SSE streaming.
+- **LangGraph** orchestrates intent classification and retrieval routing.
+- **Celery + RabbitMQ** processes document uploads asynchronously.
+- **PostgreSQL + pgvector** stores relational data and private document vectors.
+- **Qdrant** stores the 46k-case shared corpus (1.1M vectors, metadata indexed).
+- **Groq** runs `llama-3.3-70b-versatile` for LLM inference.
 
 ## Tech Stack
 
 | Component | Technology |
 |---|---|
-| Frontend | React 18, Vite, TailwindCSS, lucide-react |
-| Backend | FastAPI, Python 3.11, SQLAlchemy, Alembic |
+| Frontend | React 18, Vite, TailwindCSS |
+| Backend | FastAPI, Python 3.9+, SQLAlchemy, Alembic |
+| Agent Orchestration | LangGraph, LangChain |
 | Task Queue | Celery, RabbitMQ |
 | Database | PostgreSQL 17, pgvector |
-| LLM | Groq `llama-3.3-70b-versatile` via LangChain |
-| Embeddings | `sentence-transformers/all-mpnet-base-v2` |
-| Search | FAISS (Main Corpus), pgvector (Session Documents) |
+| Vector Store (Corpus) | Qdrant |
+| LLM | Groq llama-3.3-70b-versatile |
+| Embeddings | sentence-transformers/all-mpnet-base-v2 (768-dim) |
 | PDF Processing | PyMuPDF, LangChain RecursiveCharacterTextSplitter |
-| Deployment | Docker Compose, Nginx, Azure VM, Azure Static Web Apps |
+| File Storage | Azure Blob Storage (or local fallback) |
+| Deployment | Docker Compose, Azure VM, Azure Static Web Apps |
+
+## Project Structure
+
+```
+JurisFind/
+├── backend/
+│   ├── alembic/                  # Database migrations
+│   ├── app/
+│   │   ├── agents/               # LangGraph agent orchestrator
+│   │   │   ├── graph.py          # Compiled StateGraph singleton
+│   │   │   ├── state.py          # JurisFindState TypedDict
+│   │   │   └── nodes/
+│   │   │       ├── classifier.py     # Node 1: intent + guardrail
+│   │   │       ├── general_chat.py   # Node 2A: general legal Q&A
+│   │   │       ├── document_chat.py  # Node 2B: document RAG
+│   │   │       ├── corpus_search.py  # Node 2C: full corpus search
+│   │   │       ├── _embedder.py      # Shared embedding helper
+│   │   │       └── _qdrant.py        # Shared Qdrant client
+│   │   ├── ai/                   # Legacy agents (kept for reference)
+│   │   ├── api/                  # FastAPI routers
+│   │   │   ├── auth.py           # Register, login, profile
+│   │   │   ├── sessions.py       # Chat sessions + SSE streaming
+│   │   │   ├── documents.py      # PDF upload and status
+│   │   │   ├── cases.py          # Corpus case management
+│   │   │   ├── search.py         # Semantic search endpoints
+│   │   │   └── dependencies/     # JWT validation
+│   │   ├── db/
+│   │   │   ├── models.py         # SQLAlchemy models
+│   │   │   ├── crud/             # Repository functions
+│   │   │   └── session.py        # DB session management
+│   │   ├── schemas/              # Pydantic request/response models
+│   │   ├── services/             # Embedding, retrieval, blob storage
+│   │   ├── workers/              # Celery document processing task
+│   │   └── main.py               # App factory
+│   └── requirements.txt
+├── frontend/
+│   └── src/
+│       ├── components/           # Reusable UI components
+│       ├── context/              # React Auth Context
+│       └── pages/                # Search, Assistant, Login pages
+├── docs/                         # Technical documentation
+└── docker-compose.yml
+```
 
 ## Quick Start
 
 ### Prerequisites
 
-- Docker and Docker Compose
+- Python 3.9+
 - Node.js 18+
-- Groq API key
+- Docker and Docker Compose
+- Groq API key from console.groq.com
+- Qdrant running locally on port 6333
 
-### Backend & Database
-
-The backend services are orchestrated using Docker Compose.
+### Backend
 
 ```bash
-# 1. Start the database and message broker
-docker-compose up db rabbitmq -d
+# 1. Start infrastructure
+docker compose up db rabbitmq -d
 
-# 2. Setup the Python environment
+# 2. Set up Python environment
 cd backend
 python -m venv venv
 # Windows: .\venv\Scripts\activate
@@ -74,16 +153,16 @@ pip install -r requirements.txt
 
 # 3. Configure environment
 cp .env.example .env
-# Edit .env and set your GROQ_API_KEY
+# Edit .env — set GROQ_API_KEY, DATABASE_URL, RABBITMQ_URL
 
 # 4. Run database migrations
 alembic upgrade head
 
-# 5. Start the API server
+# 5. Start API server
 uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --reload
 
-# 6. Start the Celery worker (in a new terminal)
-celery -A app.workers.celery_app worker --loglevel=info
+# 6. Start Celery worker (separate terminal)
+celery -A app.workers.celery_app worker --loglevel=info -Q jurisfind_documents
 ```
 
 ### Frontend
@@ -96,34 +175,9 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## Project Structure
-
-```text
-JurisFind/
-├── backend/
-│   ├── alembic/                 # Database migrations
-│   ├── app/
-│   │   ├── ai/                  # LangChain agents (RAG, Chatbot)
-│   │   ├── api/                 # FastAPI routers (auth, sessions, documents)
-│   │   ├── db/                  # SQLAlchemy models and CRUD operations
-│   │   ├── schemas/             # Pydantic models for request/response validation
-│   │   ├── services/            # Core business logic and blob storage integration
-│   │   └── workers/             # Celery tasks (document processing)
-│   ├── data/                    # Local storage for uploaded documents and FAISS index
-│   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── components/          # Reusable UI components
-│   │   ├── config/              # API client configuration
-│   │   ├── context/             # React Context (Auth)
-│   │   └── pages/               # Main application views (Search, Assistant, Login)
-│   └── package.json
-└── docker-compose.yml           # Infrastructure definition (Postgres, RabbitMQ)
-```
-
 ## Environment Variables
 
-### Backend (.env)
+### Backend (`backend/.env`)
 
 | Variable | Description |
 |---|---|
@@ -131,17 +185,23 @@ JurisFind/
 | `RABBITMQ_URL` | RabbitMQ connection string |
 | `GROQ_API_KEY` | Required for LLM inference |
 | `SECRET_KEY` | JWT signing key |
-| `USE_LOCAL_FILES` | Set to `true` to use local filesystem instead of Azure Blob |
+| `QDRANT_HOST` | Qdrant host (default: localhost) |
+| `QDRANT_PORT` | Qdrant port (default: 6333) |
+| `AZURE_STORAGE_CONNECTION_STRING` | Optional, enables Azure Blob Storage |
+| `GROQ_MODEL` | LLM model name (default: llama-3.3-70b-versatile) |
 
-### Frontend (.env)
+### Frontend (`frontend/.env`)
 
 | Variable | Description |
 |---|---|
-| `VITE_API_BASE_URL` | Backend URL (defaults to http://localhost:8000) |
+| `VITE_API_BASE_URL` | Backend URL (default: http://localhost:8000) |
 
 ## Documentation
 
-Detailed documentation is available in the `docs/` directory:
-- `docs/architecture.md`: System architecture and data flow.
-- `docs/api_reference.md`: API endpoint specifications.
-- `docs/technical_documentation.md`: Comprehensive internal reference.
+Detailed technical documentation is in the `docs/` directory:
+
+- `docs/01_overview.md` — System overview and architecture diagram
+- `docs/02_data_flows.md` — End-to-end data flow for every user action
+- `docs/03_agent.md` — LangGraph agent design, nodes, and routing logic
+- `docs/04_api_reference.md` — All API endpoints with request/response details
+- `docs/05_setup_and_installation.md` — Local setup and deployment guide

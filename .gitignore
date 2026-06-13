@@ -124,7 +124,9 @@ backend/scripts/qdrant_ingestion/*.log
 backend/scripts/qdrant_ingestion/kaggle_export/
 backend/scripts/audit/
 backend/scripts/faiss/
+backend/scripts/qdrant/
+backend/scripts/faiss_ingestion/build_chunked_faiss.py
+backend/scripts/faiss_ingestion/chunked_build_report.json
 
 agents.md
 claude.md
-

@@ -1,6 +1,6 @@
 #!/bin/bash
 # ─────────────────────────────────────────────
-# JurisFind – Azure VM Bootstrap Script
+# JurisFind – Production VM Bootstrap Script
 #
 # Run this once after SSH-ing into a fresh Ubuntu 22.04 VM:
 #   chmod +x deploy.sh
@@ -98,6 +98,6 @@ echo "  API docs at:      http://$(curl -s ifconfig.me)/docs"
 echo ""
 echo "  Next steps:"
 echo "  1. Fill in $APP_DIR/api/.env with real keys"
-echo "  2. Open ports 80 and 443 in Azure Network Security Group"
+echo "  2. Open ports 80 and 443 in your Network Security Group/Firewall"
 echo "  3. (Optional) Add SSL: sudo certbot --nginx -d yourdomain.com"
 echo "════════════════════════════════════════"

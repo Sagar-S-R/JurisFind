@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
 import {
   Send, FileText, Loader2, AlertCircle, Plus,
   User, Bot, BookOpen, Trash2,
@@ -63,7 +64,7 @@ function PdfViewerModal({ url, title, token, onClose }) {
           <div className="flex items-center gap-2">
             <a
               href={url}
-              download={title}
+              download={title.toLowerCase().endsWith('.pdf') ? title : `${title}.pdf`}
               className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all"
               title="Download PDF"
             >
@@ -153,7 +154,29 @@ function Message({ msg, token, onViewPdf, onDownloadPdf }) {
         )}
 
         {msg.content && (
-          <p className="whitespace-pre-wrap">{msg.content}</p>
+          <div className={`prose prose-sm max-w-none leading-relaxed ${
+            isUser ? 'prose-invert' : 'prose-gray'
+          }`}>
+            <ReactMarkdown
+              components={{
+                p:    ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                ul:   ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+                ol:   ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+                li:   ({ children }) => <li className="leading-relaxed">{children}</li>,
+                h1:   ({ children }) => <h1 className="text-base font-bold mb-2">{children}</h1>,
+                h2:   ({ children }) => <h2 className="text-sm font-bold mb-1.5">{children}</h2>,
+                h3:   ({ children }) => <h3 className="text-sm font-semibold mb-1">{children}</h3>,
+                strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                code: ({ children }) => (
+                  <code className={`px-1 py-0.5 rounded text-xs font-mono ${
+                    isUser ? 'bg-gray-700' : 'bg-gray-100 text-gray-800'
+                  }`}>{children}</code>
+                ),
+              }}
+            >
+              {msg.content}
+            </ReactMarkdown>
+          </div>
         )}
 
         {/* Citations */}

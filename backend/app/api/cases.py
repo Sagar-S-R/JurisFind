@@ -269,16 +269,28 @@ async def analyze_case(
     ).first()
 
     if not doc:
+        doc_uuid = None
+        try:
+            doc_uuid = _uuid.UUID(case_id)
+        except ValueError:
+            pass
+
         doc = doc_repo.create_document(
             db=db,
             title=corpus_title,
             blob_path=abs_pdf_path,
             source_type="legal_case",
-            owner_id=None
+            owner_id=None,
+            doc_id=doc_uuid
         )
-        process_document_task.delay(document_id=str(doc.id), blob_path=abs_pdf_path)
+        
+        # Corpus cases are already indexed in Qdrant! 
+        # Mark as ready immediately and DO NOT trigger Celery.
+        doc.status = "ready"
+        db.commit()
     elif doc.status != "ready":
-        process_document_task.delay(document_id=str(doc.id), blob_path=abs_pdf_path)
+        doc.status = "ready"
+        db.commit()
 
     # ── Create Session + attach Document ───────────────────────────────────────
     session = session_repo.create_session(db, _uuid.UUID(user_id), title=f"Analysis: {corpus_title}")

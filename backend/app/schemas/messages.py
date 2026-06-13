@@ -11,9 +11,16 @@ from pydantic import BaseModel, Field
 class CitationModel(BaseModel):
     document_id: str
     document_title: str
-    document_filename: str
-    page_number: int
+    document_filename: Optional[str] = None
+    page_number: Optional[int] = None
     excerpt: str
+    
+    # Qdrant Corpus fields
+    court: Optional[str] = None
+    year: Optional[int] = None
+    citation: Optional[str] = None
+    score: Optional[float] = None
+    chunk_id: Optional[str] = None
 
 
 class MessageCreate(BaseModel):

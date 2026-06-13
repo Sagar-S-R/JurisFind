@@ -38,7 +38,12 @@ function PdfViewerModal({ url, title, onClose }) {
             <h3 className="text-sm font-semibold text-gray-900 truncate">{title}</h3>
           </div>
           <div className="flex items-center gap-2">
-            <a href={url} download={title} className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all" title="Download PDF">
+            <a 
+              href={url} 
+              download={title.toLowerCase().endsWith('.pdf') ? title : `${title}.pdf`} 
+              className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-50 rounded-lg transition-all" 
+              title="Download PDF"
+            >
               <Download className="h-4 w-4" />
             </a>
             <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-900 hover:bg-gray-50 rounded-lg transition-all">
@@ -72,8 +77,25 @@ function PdfViewerModal({ url, title, onClose }) {
 function SearchPage() {
   const navigate = useNavigate();
   const { token } = useAuth();
-  const [query, setQuery] = useState('');
-  const [results, setResults] = useState([]);
+  const [query, setQuery] = useState(() => {
+    return sessionStorage.getItem('jurisSearchQuery') || '';
+  });
+  const [results, setResults] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('jurisSearchResults');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem('jurisSearchQuery', query);
+  }, [query]);
+
+  useEffect(() => {
+    sessionStorage.setItem('jurisSearchResults', JSON.stringify(results));
+  }, [results]);
   const [loading, setLoading] = useState(false);
   const [analyzingId, setAnalyzingId] = useState(null);
   const [viewerPdf, setViewerPdf] = useState(null); // { url, title }
@@ -265,7 +287,7 @@ function SearchPage() {
                       </button>
                       <a
                         href={id ? getPdfUrl(id) : '#'}
-                        download={result.title || filenameToTitle(id)}
+                        download={(result.title || filenameToTitle(id)).toLowerCase().endsWith('.pdf') ? (result.title || filenameToTitle(id)) : `${result.title || filenameToTitle(id)}.pdf`}
                         className="flex items-center gap-1.5 bg-white border border-gray-200 hover:border-gray-300
                           text-gray-700 px-4 py-2 rounded-full text-xs font-medium transition-colors"
                         onClick={(e) => { if (!id) e.preventDefault(); }}

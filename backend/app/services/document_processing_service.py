@@ -166,11 +166,34 @@ class DocumentProcessingService:
 
     @staticmethod
     def generate_summary(full_text: str) -> str:
-        """Generate a structured legal summary via the Legal Agent (Groq)."""
-        from app.ai.legal_agent import get_agent
-        agent = get_agent()
+        import os
+        from groq import Groq
+        
         truncated = full_text[:8000] if len(full_text) > 8000 else full_text
-        return agent.generate_summary(truncated)
+        api_key = os.getenv("GROQ_API_KEY", "").strip().strip('"').strip("'")
+        model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+        
+        if not api_key:
+            return "Summary generation skipped (no API key configured)."
+            
+        try:
+            client = Groq(api_key=api_key)
+            prompt = (
+                "You are an expert legal analyst. Provide a brief, structured summary "
+                "of the following legal document excerpt. Highlight the main topic, "
+                "parties involved (if any), and the core issue or ruling.\n\n"
+                f"Document text:\n{truncated}"
+            )
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=300
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            logger.error("Summary generation failed: %s", e)
+            return f"Summary generation failed: {str(e)}"
 
     # ── Orchestrator ──────────────────────────────────────────────────────────
 

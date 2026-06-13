@@ -282,7 +282,7 @@ async def serve_pdf(
     filename = row[0]
     safe_filename = os.path.basename(filename)
     local_pdf_dir = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
         "data", "pdfs",
     )
     pdf_path = os.path.join(local_pdf_dir, safe_filename)
