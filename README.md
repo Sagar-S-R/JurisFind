@@ -11,6 +11,7 @@ AI-powered legal research and conversational analysis platform. Search across 46
 - [Quick Start](#quick-start)
 - [Environment Variables](#environment-variables)
 - [Documentation](#documentation)
+- [RAG Metrics & Evaluation](#rag-metrics--evaluation)
 
 ## Features
 
@@ -234,12 +235,21 @@ Open `http://localhost:5173`.
 |---|---|
 | `VITE_API_BASE_URL` | Backend URL (default: http://localhost:8000) |
 
+## RAG Metrics & Evaluation
+
+JurisFind underwent rigorous multi-system empirical evaluations against 192 test queries over the full 46,000 document corpus. 
+We migrated from a baseline FAISS index to a **Qdrant Hybrid RRF** pipeline, boosting Hit@5 accuracy for excerpt queries from 35.9% to **82.3%**.
+
+For full evaluation numbers, performance comparisons, and known limitations, please read the **[RAG Metrics Report](docs/rag_metrics.md)**.
+
 ## Documentation
 
-Detailed technical documentation is in the `docs/` directory:
+Detailed technical documentation is available in the `docs/` directory:
 
-- `docs/01_overview.md` — System overview and architecture diagram
-- `docs/02_data_flows.md` — End-to-end data flow for every user action
-- `docs/03_agent.md` — LangGraph agent design, nodes, and routing logic
+- [System Overview & Architecture](docs/overview.md)
+- [Data Flows & API Design](docs/data_flows.md)
+- [Database Schema & Migrations](docs/database.md)
+- [LangGraph Agent Orchestrator](docs/agent.md)
+- [RAG Metrics & Limitations](docs/rag_metrics.md)
 - `docs/04_api_reference.md` — All API endpoints with request/response details
 - `docs/05_setup_and_installation.md` — Local setup and deployment guide
