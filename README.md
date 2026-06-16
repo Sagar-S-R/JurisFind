@@ -251,5 +251,5 @@ Detailed technical documentation is available in the `docs/` directory:
 - [Database Schema & Migrations](docs/database.md)
 - [LangGraph Agent Orchestrator](docs/agent.md)
 - [RAG Metrics & Limitations](docs/rag_metrics.md)
-- `docs/04_api_reference.md` — All API endpoints with request/response details
-- `docs/05_setup_and_installation.md` — Local setup and deployment guide
+- [API Reference](docs/api_reference.md)
+- [Setup & Installation](docs/setup_and_installation.md)
