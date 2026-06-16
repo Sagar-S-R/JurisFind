@@ -38,9 +38,9 @@ async def upload_document(
 
     content = await file.read()
     
-    # Check for duplicate
+    # Check for duplicate within the same user's uploads
     file_hash = doc_repo.sha256_of_bytes(content)
-    existing_doc = doc_repo.get_document_by_hash(db, file_hash)
+    existing_doc = doc_repo.get_document_by_hash(db, file_hash, uuid.UUID(user_id))
     
     if existing_doc:
         logger.info("Duplicate document detected: %s", file_hash)

@@ -31,33 +31,72 @@ Conversations are persistent and multi-document. Each session stores ordered mes
 
 ## Architecture
 
-```
-User Request (POST /api/sessions/{id}/messages)
-        |
-        v
-  FastAPI Endpoint
-  - Verify JWT + session ownership
-  - Persist user message to DB
-  - Load chat history from DB
-  - Collect attached document IDs
-        |
-        v
-  LangGraph State Machine (juris_graph)
-        |
-   classifier_node  <-- LLM Call 1 (intent + guardrail)
-        |
-   -----+------------------------------------------
-   |                  |                   |        |
-   v                  v                   v        v
-general_chat    document_chat      corpus_search  blocked
-(LLM Call 2)   (Qdrant or         (Qdrant full   (rejection
-                pgvector + LLM)    scan + LLM)    message)
-        |
-        v
-  Citations built from Qdrant payload (no LLM)
-        |
-        v
-  SSE stream to frontend → save to DB
+```mermaid
+flowchart TD
+    classDef client fill:#2563eb,stroke:#1e3a8a,color:#fff
+    classDef api fill:#059669,stroke:#064e3b,color:#fff
+    classDef db fill:#d97706,stroke:#78350f,color:#fff
+    classDef queue fill:#7c3aed,stroke:#4c1d95,color:#fff
+    classDef llm fill:#db2777,stroke:#831843,color:#fff
+    classDef lgraph fill:#4f46e5,stroke:#312e81,color:#fff
+
+    React["React SPA<br>Vite + TailwindCSS"]:::client
+
+    subgraph FastAPI["FastAPI Backend"]
+        AuthRoute["POST /api/auth<br>JWT Auth"]:::api
+        SearchRoute["POST /api/search<br>Corpus Search"]:::api
+        UploadRoute["POST /api/documents/upload<br>PDF Upload"]:::api
+        ChatRoute["POST /api/sessions/id/messages<br>SSE Stream"]:::api
+        CasesRoute["POST /api/cases/id/analyze<br>Attach Case"]:::api
+        DocStatusRoute["GET /api/documents/id/status<br>Poll Status"]:::api
+    end
+
+    React --> AuthRoute
+    React --> SearchRoute
+    React --> UploadRoute
+    React --> ChatRoute
+    React --> CasesRoute
+    React --> DocStatusRoute
+
+    subgraph Databases["Data Persistence Layer"]
+        PG["PostgreSQL<br>Users, Sessions"]:::db
+        PGVector["PostgreSQL pgvector<br>Private Embeddings"]:::db
+        Qdrant["Qdrant<br>46k Cases, 1.1M Vectors"]:::db
+        BlobStorage["Azure Blob / Local Disk<br>Raw PDFs"]:::db
+    end
+
+    AuthRoute <--> PG
+    SearchRoute -->|"Hybrid RRF<br>Dense+Sparse"| Qdrant
+    SearchRoute --> PG
+    CasesRoute --> PG
+
+    subgraph AsyncProcessing["Async Background Processing"]
+        RabbitMQ["RabbitMQ<br>Task Broker"]:::queue
+        CeleryWorker["Celery Worker<br>jurisfind_documents"]:::queue
+    end
+
+    UploadRoute -->|"SHA-256<br>dedup check"| PG
+    UploadRoute --> BlobStorage
+    UploadRoute --> RabbitMQ
+    RabbitMQ --> CeleryWorker
+    CeleryWorker -->|"PyMuPDF extract<br>LangChain chunk"| BlobStorage
+    CeleryWorker -->|"all-mpnet-base-v2<br>768-dim embed"| PGVector
+    CeleryWorker -->|"status = ready"| PG
+
+    LangGraphAgent["juris_graph State Machine<br>(See docs/agent.md for details)"]:::lgraph
+
+    ChatRoute -->|"Validate JWT<br>ownership"| PG
+    ChatRoute -->|"Persist user<br>message"| PG
+    ChatRoute -->|"Load history<br>+ doc IDs"| PG
+    ChatRoute --> LangGraphAgent
+
+    LangGraphAgent <-->|"LLM API Calls"| GroqLLM["Groq API<br>llama-3.3-70b-versatile"]:::llm
+    LangGraphAgent <-->|"Cosine search<br>by doc_id"| PGVector
+    LangGraphAgent <-->|"Hybrid RRF /<br>Filtered Search"| Qdrant
+
+    LangGraphAgent -->|"answer + citations"| SSE["SSE Streamer"]
+    SSE -->|"text/event-stream"| React
+    SSE -->|"Persist assistant<br>message"| PG
 ```
 
 Infrastructure layers:
@@ -102,7 +141,6 @@ JurisFind/
 │   │   │       ├── corpus_search.py  # Node 2C: full corpus search
 │   │   │       ├── _embedder.py      # Shared embedding helper
 │   │   │       └── _qdrant.py        # Shared Qdrant client
-│   │   ├── ai/                   # Legacy agents (kept for reference)
 │   │   ├── api/                  # FastAPI routers
 │   │   │   ├── auth.py           # Register, login, profile
 │   │   │   ├── sessions.py       # Chat sessions + SSE streaming

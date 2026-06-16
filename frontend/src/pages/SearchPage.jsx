@@ -97,6 +97,7 @@ function SearchPage() {
     sessionStorage.setItem('jurisSearchResults', JSON.stringify(results));
   }, [results]);
   const [loading, setLoading] = useState(false);
+  const [isKeywordMode, setIsKeywordMode] = useState(false);
   const [analyzingId, setAnalyzingId] = useState(null);
   const [viewerPdf, setViewerPdf] = useState(null); // { url, title }
 
@@ -116,8 +117,9 @@ function SearchPage() {
     if (!query.trim()) return;
 
     setLoading(true);
+    const search_mode = isKeywordMode ? 'keyword' : 'hybrid';
     try {
-      const data = await casesApi.search(query, token, 10);
+      const data = await casesApi.search(query, token, 10, search_mode);
       setResults(data.results || []);
     } catch (error) {
       console.error('Search error:', error);
@@ -198,6 +200,28 @@ function SearchPage() {
               </div>
             </div>
           </form>
+
+          {/* Keyword mode toggle */}
+          <div className="max-w-3xl mx-auto mt-3 px-1">
+            <label className="inline-flex items-center gap-2.5 cursor-pointer select-none group">
+              <input
+                id="keyword-mode-toggle"
+                type="checkbox"
+                checked={isKeywordMode}
+                onChange={(e) => setIsKeywordMode(e.target.checked)}
+                className="w-4 h-4 rounded border-gray-300 text-gray-900 accent-gray-900 cursor-pointer"
+              />
+              <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">
+                Keyword Search
+                <span className="text-gray-400 font-normal"> — Exact match for case names, citations, act references</span>
+              </span>
+            </label>
+            {isKeywordMode && (
+              <p className="mt-1.5 ml-6 text-xs text-amber-600">
+                Showing exact keyword matches from our 46,456 case corpus
+              </p>
+            )}
+          </div>
         </div>
       </div>
 

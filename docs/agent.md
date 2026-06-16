@@ -31,16 +31,48 @@ class JurisFindState(TypedDict):
 
 ## Graph Topology
 
-```
-entry: classifier
-    |
-    +--[general]--> general_chat   --> END
-    |
-    +--[document_chat]--> document_chat --> END
-    |
-    +--[corpus_search]--> corpus_search --> END
-    |
-    +--[blocked]--> blocked --> END
+```mermaid
+flowchart TD
+    classDef db fill:#d97706,stroke:#78350f,color:#fff
+    classDef llm fill:#db2777,stroke:#831843,color:#fff
+    classDef lgraph fill:#4f46e5,stroke:#312e81,color:#fff
+
+    subgraph LangGraph["juris_graph - LangGraph State Machine"]
+        State["Build JurisFindState"]:::lgraph
+        Classifier["classifier_node - Intent + Guardrail"]:::lgraph
+        GeneralChat["general_chat - No Retrieval"]:::lgraph
+        DocChat["document_chat - Scoped RAG"]:::lgraph
+        CorpusSearch["corpus_search - Corpus Synthesis"]:::lgraph
+        Blocked["blocked - Guardrail Reject"]:::lgraph
+
+        State --> Classifier
+        Classifier -->|"intent=general"| GeneralChat
+        Classifier -->|"intent=document_chat"| DocChat
+        Classifier -->|"intent=corpus_search"| CorpusSearch
+        Classifier -->|"is_legal=false"| Blocked
+    end
+
+    GroqLLM["Groq API - llama-3.3-70b-versatile"]:::llm
+    PGVector["PostgreSQL pgvector - Private Embeddings"]:::db
+    Qdrant["Qdrant Vector Store - 46k Cases"]:::db
+    SSE["FastAPI SSE Streamer"]
+
+    Input["Incoming Request (FastAPI)"] --> State
+
+    Classifier <-->|"LLM Call 1 - JSON mode classify"| GroqLLM
+    GeneralChat <-->|"LLM Call 2 - no retrieval"| GroqLLM
+    
+    DocChat -->|"Cosine search by doc_id"| PGVector
+    DocChat -->|"Qdrant filter by doc_id"| Qdrant
+    DocChat <-->|"LLM Call 2 - context injected"| GroqLLM
+    
+    CorpusSearch -->|"Hybrid RRF top-15 deduplicated"| Qdrant
+    CorpusSearch <-->|"LLM Call 2 - context injected"| GroqLLM
+
+    GeneralChat -->|"answer"| SSE
+    DocChat -->|"answer + citations"| SSE
+    CorpusSearch -->|"answer + citations"| SSE
+    Blocked -->|"rejection message"| SSE
 ```
 
 Compiled in `app/agents/graph.py` as a module-level singleton `juris_graph = build_graph()`.
@@ -149,23 +181,27 @@ Returns a module-level `QdrantClient` singleton. Connection parameters from `QDR
 The `send_message` endpoint in `app/api/sessions.py` drives the graph:
 
 ```python
-async def generate():
-    async for event in juris_graph.astream_events(initial_state, version="v2"):
-        kind = event.get("event", "")
+    async def generate():
+        final_answer    = ""
+        final_citations = []
 
-        if kind == "on_chat_model_stream":
-            content = event["data"]["chunk"].content
-            if content:
-                yield f"data: {json.dumps({'content': content})}\n\n"
+        try:
+            final_state     = await juris_graph.ainvoke(initial_state)
+            final_answer    = final_state.get("answer", "")
+            final_citations = final_state.get("citations", [])
 
-        elif kind == "on_chain_end" and event["name"] == "LangGraph":
-            output = event["data"].get("output", {})
-            final_answer = output.get("answer", "")
-            final_citations = output.get("citations", [])
+            if final_answer:
+                yield f"data: {json.dumps({'content': final_answer})}\n\n"
+            else:
+                yield f"data: {json.dumps({'content': 'No response was generated. Please try again.'})}\n\n"
 
-    yield "data: [DONE]\n\n"
-    if final_citations:
-        yield f"event: citations\ndata: {json.dumps(final_citations)}\n\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'content': '[Server busy. Please try again in a moment.]'})}\n\n"
+
+        yield "data: [DONE]\n\n"
+
+        if final_citations:
+            yield f"event: citations\ndata: {json.dumps(final_citations)}\n\n"
 ```
 
-Because nodes use synchronous Groq calls (`stream=False`), the `on_chat_model_stream` events will not fire per-token. The full answer is streamed as a single chunk when the graph completes. If per-token streaming is required in future, nodes must be rewritten to use `langchain-groq` `ChatGroq` with LangChain streaming enabled, which emits `on_chat_model_stream` events natively.
+Because nodes use synchronous raw Groq API calls (`stream=False`), we use `ainvoke()` to run the full graph and return the final state, then emit the complete answer as a single SSE chunk. If true token-by-token streaming is required in the future, the nodes must be rewritten to use `ChatGroq` with LangChain streaming enabled, at which point the API could switch back to `astream_events`.

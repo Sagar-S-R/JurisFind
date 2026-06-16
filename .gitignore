@@ -125,6 +125,8 @@ backend/scripts/qdrant_ingestion/kaggle_export/
 backend/scripts/audit/
 backend/scripts/faiss/
 backend/scripts/qdrant/
+backend/scripts/hybrid/*.json
+backend/scripts/hybrid/*.txt
 backend/scripts/faiss_ingestion/build_chunked_faiss.py
 backend/scripts/faiss_ingestion/chunked_build_report.json
 

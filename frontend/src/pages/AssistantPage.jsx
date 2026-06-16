@@ -241,6 +241,7 @@ export default function AssistantPage() {
   const [histLoading, setHistLoading]     = useState(false);
   const [error, setError]                 = useState('');
   const [sidebarOpen, setSidebarOpen]     = useState(true);
+  const [sessionToDelete, setSessionToDelete] = useState(null);
 
   // PDF Viewer Modal State
   const [viewerPdf, setViewerPdf]         = useState(null); // { url, title }
@@ -372,8 +373,16 @@ export default function AssistantPage() {
     navigate('/assistant');
   };
 
-  const deleteSession = async (e, id) => {
+  const deleteSession = (e, id) => {
     e.stopPropagation();
+    setSessionToDelete(id);
+  };
+
+  const confirmDeleteSession = async () => {
+    if (!sessionToDelete) return;
+    const id = sessionToDelete;
+    setSessionToDelete(null);
+
     // Optimistic remove — instant UI response
     setSessions(prev => prev.filter(s => s.id !== id));
     if (sessionId === id) navigate('/assistant');
@@ -815,6 +824,37 @@ export default function AssistantPage() {
           token={token}
           onClose={() => setViewerPdf(null)} 
         />
+      )}
+
+      {/* Premium Delete Confirmation Modal */}
+      {sessionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-6 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center gap-4 mb-4">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900">Delete Chat</h3>
+            </div>
+            <p className="text-sm text-gray-600 mb-6">
+              Are you sure you want to delete this conversation? This action cannot be undone and you will lose all history and attached documents.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setSessionToDelete(null)}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteSession}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 shadow-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

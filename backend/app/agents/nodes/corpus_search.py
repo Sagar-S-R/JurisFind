@@ -12,8 +12,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from groq import Groq
+from qdrant_client.http.models import Fusion, FusionQuery, Prefetch, SparseVector
 
 from app.agents.nodes._embedder import embed
+from app.services.qdrant_search_service import _embed_sparse
 from app.agents.nodes._qdrant import COLLECTION_NAME, get_qdrant
 from app.agents.state import JurisFindState
 from app.db.session import DatabaseSession
@@ -64,13 +66,13 @@ def _build_chunks(results: list, chunk_texts: dict) -> list[dict]:
     """Convert raw Qdrant results to plain dicts for state storage."""
     return [
         {
-            "chunk_text":  chunk_texts.get(r.payload.get("chunk_id", ""), ""),
-            "document_id": r.payload.get("document_id", ""),
-            "chunk_id":    r.payload.get("chunk_id", ""),
-            "title":       r.payload.get("title", "Unknown"),
-            "court":       r.payload.get("court", ""),
-            "year":        r.payload.get("year", ""),
-            "citation":    r.payload.get("citation", ""),
+            "chunk_text":  chunk_texts.get(r.payload.get("chunk_id", ""), "") or "",
+            "document_id": r.payload.get("document_id") or "",
+            "chunk_id":    r.payload.get("chunk_id") or "",
+            "title":       r.payload.get("title") or "Unknown",
+            "court":       r.payload.get("court") or "",
+            "year":        r.payload.get("year") or "",
+            "citation":    r.payload.get("citation") or "",
             "score":       r.score,
         }
         for r in results
@@ -121,12 +123,25 @@ def corpus_search_node(state: JurisFindState) -> JurisFindState:
 
     # ── Embed and search ───────────────────────────────────────────────────────
     try:
-        query_vector = embed(question)
+        dense_vec = embed(question)
+        sparse_vec: SparseVector = _embed_sparse(question)
         client = get_qdrant()
 
         result = client.query_points(
             collection_name=COLLECTION_NAME,
-            query=query_vector,
+            prefetch=[
+                Prefetch(
+                    query=dense_vec,
+                    using="dense",
+                    limit=SEARCH_LIMIT * 3,
+                ),
+                Prefetch(
+                    query=sparse_vec,
+                    using="sparse",
+                    limit=SEARCH_LIMIT * 3,
+                ),
+            ],
+            query=FusionQuery(fusion=Fusion.RRF),
             limit=SEARCH_LIMIT,
             with_payload=True,
         )

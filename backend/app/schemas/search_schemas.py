@@ -24,6 +24,10 @@ class SearchRequest(BaseModel):
         None,
         description="Restrict chunks to a legal section: 'held', 'facts', 'judgment', 'headnote', 'issues', 'order', etc."
     )
+    search_mode: str = Field(
+        "hybrid",
+        description="Search strategy: 'hybrid' (Dense + BM25 RRF, best for concepts) or 'keyword' (BM25 only, best for exact names/citations)"
+    )
     top_k: int = Field(10, ge=1, le=50, description="Number of unique cases to return")
 
     model_config = {"json_schema_extra": {

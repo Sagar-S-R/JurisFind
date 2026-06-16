@@ -42,9 +42,12 @@ def get_document(db: Session, document_id: uuid.UUID) -> Optional[Document]:
     return db.query(Document).filter(Document.id == document_id).first()
 
 
-def get_document_by_hash(db: Session, file_hash: str) -> Optional[Document]:
-    """For deduplication: find an existing document with the same SHA-256 hash."""
-    return db.query(Document).filter(Document.file_hash == file_hash).first()
+def get_document_by_hash(db: Session, file_hash: str, owner_id: uuid.UUID) -> Optional[Document]:
+    """For deduplication: find an existing document with the same SHA-256 hash owned by this user."""
+    return db.query(Document).filter(
+        Document.file_hash == file_hash,
+        Document.owner_id == owner_id
+    ).first()
 
 
 def update_status(

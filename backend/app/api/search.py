@@ -91,6 +91,7 @@ async def search(
             case_type=request.case_type,
             section_type=request.section_type,
             top_k=top_k,
+            search_mode=request.search_mode,
         )
     except Exception as exc:
         logger.exception("Search failed for query=%r: %s", query_text, exc)

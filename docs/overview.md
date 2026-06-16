@@ -16,7 +16,7 @@ The system is composed of five layers:
 
 5. **Databases:**
    - **PostgreSQL + pgvector:** Stores all relational data (users, sessions, messages, documents) and 768-dim vector embeddings for private user uploads.
-   - **Qdrant:** Hosts the pre-indexed 46k corpus (1,163,447 vectors) with metadata indexes on court, year, state, case type, and section type.
+   - **Qdrant:** Hosts the pre-indexed 46k corpus (1,163,447 vectors). Queries are executed using a **Hybrid RRF (Reciprocal Rank Fusion)** approach, combining dense embeddings (`all-mpnet-base-v2`) with sparse BM25 vectors for maximum accuracy.
 
 ```
 User
@@ -37,7 +37,7 @@ LangGraph State Machine
  |
  +-- general_chat     (LLM Call 2 - no retrieval)
  +-- document_chat    (pgvector or Qdrant filtered + LLM Call 2)
- +-- corpus_search    (Qdrant full scan + LLM Call 2)
+ +-- corpus_search    (Hybrid RRF Qdrant search + LLM Call 2)
  +-- blocked          (guardrail rejection - no LLM call)
  |
  v

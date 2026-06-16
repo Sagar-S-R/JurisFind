@@ -62,10 +62,10 @@ export const authApi = {
 
 // ── Cases ─── /api/cases/* ────────────────────────────────────────────────
 export const casesApi = {
-  search: (query, token, top_k = 10) =>
+  search: (query, token, top_k = 10, search_mode = 'hybrid') =>
     request('/api/search', {
       method: 'POST',
-      body: JSON.stringify({ query, top_k }),
+      body: JSON.stringify({ query, top_k, search_mode }),
     }, token),
 
   get: (caseId) =>

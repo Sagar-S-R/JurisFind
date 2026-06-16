@@ -9,9 +9,9 @@ This document traces what happens internally for every major user action, from t
 User types a legal query in the Search page and clicks Search.
 
 1. React calls `POST /api/cases/search` with `{ query, filters }`.
-2. The `search.py` router embeds the query using the singleton `SentenceTransformer` (`all-mpnet-base-v2`, 768-dim).
-3. The embedding is sent to Qdrant (`legal_corpus` collection) via `client.query_points`. Metadata filters (court, year, etc.) can be applied at the Qdrant layer — no post-filtering.
-4. Qdrant returns raw chunk hits with scores and payload.
+2. The `search.py` router embeds the query into both a Dense vector (via `SentenceTransformer` `all-mpnet-base-v2`, 768-dim) and a Sparse BM25 vector.
+3. Both vectors are sent to Qdrant (`legal_corpus` collection) using a **Hybrid RRF (Reciprocal Rank Fusion)** query. Metadata filters (court, year, etc.) are applied at the Qdrant layer.
+4. Qdrant fuses the semantic and keyword matches and returns raw chunk hits with scores and payload.
 5. The service groups hits by `document_id` and queries the `legal_documents` table (PostgreSQL) to hydrate full case metadata (title, court, year, citation).
 6. A `SearchResponse` JSON is returned and React renders ranked case cards.
 
@@ -90,7 +90,7 @@ User types a question in an active session and presses Enter.
 - Returns `answer`, `citations`, `retrieved_chunks`.
 
 **Node 2C — corpus_search_node** (intent = "corpus_search")
-- Embeds the question and queries Qdrant without any document filter, limit 15.
+- Embeds the question into Dense and Sparse vectors and queries Qdrant using **Hybrid RRF** without any document filter, limit 15.
 - Deduplicates results by `document_id`, keeping the highest-scoring chunk per document.
 - Takes the top 5 unique documents.
 - Builds citations from Qdrant payload.

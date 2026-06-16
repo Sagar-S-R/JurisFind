@@ -24,14 +24,19 @@ from collections import defaultdict
 from typing import Dict, List, Optional
 
 import numpy as np
+from fastembed import SparseTextEmbedding
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     FieldCondition,
     Filter,
+    Fusion,
+    FusionQuery,
     MatchText,
     MatchValue,
+    Prefetch,
     Range,
     ScoredPoint,
+    SparseVector,
 )
 from sentence_transformers import SentenceTransformer
 from sqlalchemy import text
@@ -61,6 +66,7 @@ _CHUNK_FETCH_MULTIPLIER: int = 10
 # ── Module-level singletons (loaded once at first use) ─────────────────────────
 
 _embedding_model: Optional[SentenceTransformer] = None
+_bm25_model: Optional[SparseTextEmbedding] = None
 _qdrant_client: Optional[QdrantClient] = None
 
 
@@ -68,10 +74,20 @@ def _get_embedding_model() -> SentenceTransformer:
     """Return the cached SentenceTransformer, loading it on first call."""
     global _embedding_model
     if _embedding_model is None:
-        logger.info("Loading embedding model: %s", EMBEDDING_MODEL)
+        logger.info("Loading dense embedding model: %s", EMBEDDING_MODEL)
         _embedding_model = SentenceTransformer(EMBEDDING_MODEL)
-        logger.info("Embedding model loaded (dim=%d)", _embedding_model.get_sentence_embedding_dimension())
+        logger.info("Dense embedding model loaded (dim=%d)", _embedding_model.get_sentence_embedding_dimension())
     return _embedding_model
+
+
+def _get_bm25_model() -> SparseTextEmbedding:
+    """Return the cached FastEmbed BM25 model, loading it on first call."""
+    global _bm25_model
+    if _bm25_model is None:
+        logger.info("Loading BM25 sparse model (fastembed) ...")
+        _bm25_model = SparseTextEmbedding(model_name="Qdrant/bm25")
+        logger.info("BM25 model loaded.")
+    return _bm25_model
 
 
 def _get_qdrant_client() -> QdrantClient:
@@ -86,10 +102,21 @@ def _get_qdrant_client() -> QdrantClient:
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
 def _embed(text_input: str) -> List[float]:
-    """Embed a single string and return a unit-normalised float list."""
+    """Embed a single string into a dense vector (unit-normalised float list)."""
     model = _get_embedding_model()
     vec = model.encode([text_input], normalize_embeddings=True)
     return vec[0].tolist()
+
+
+def _embed_sparse(text_input: str) -> SparseVector:
+    """Embed a single string into a BM25 sparse vector for Qdrant."""
+    model = _get_bm25_model()
+    result = list(model.query_embed(text_input))
+    sparse = result[0]
+    return SparseVector(
+        indices=sparse.indices.tolist(),
+        values=sparse.values.tolist(),
+    )
 
 
 def _build_filter(
@@ -292,7 +319,9 @@ class QdrantSearchService:
     """
 
     def __init__(self) -> None:
-        # Pre-warm singletons so the first request is not slow
+        # Pre-warm the dense embedding model only — ~500MB, eliminates first-request latency.
+        # BM25 is lazy-loaded on first keyword search (~1s load, ~50MB) to avoid RAM
+        # pressure with the Celery document-processing worker which also loads this model.
         try:
             _get_embedding_model()
             _get_qdrant_client()
@@ -313,14 +342,20 @@ class QdrantSearchService:
         case_type: Optional[str] = None,
         section_type: Optional[str] = None,
         top_k: int = 10,
+        search_mode: str = "hybrid",
     ) -> SearchResponse:
         """
-        Semantic search over the full legal corpus.
+        Corpus search with two strategies controlled by `search_mode`:
 
-        Steps:
-          1. Embed the query.
-          2. Build optional Qdrant payload filter.
-          3. Fetch top_k * MULTIPLIER chunk hits from Qdrant.
+        - **hybrid** (default): Dense (semantic) + BM25 (keyword) combined via
+          Reciprocal Rank Fusion. Best for concept / topic queries.
+        - **keyword**: BM25 sparse-only. Best for exact case names, citations,
+          act sections (e.g. "Puttaswamy vs Union of India", "AIR 1973 SC 461").
+
+        Steps (both modes):
+          1. Build optional Qdrant payload filter.
+          2. Embed query into dense and/or sparse vectors.
+          3. Fetch top_k × MULTIPLIER chunk hits from Qdrant.
           4. Group by document, keeping top top_k unique cases.
           5. Hydrate with PostgreSQL metadata.
         """
@@ -330,7 +365,6 @@ class QdrantSearchService:
         if not query:
             return SearchResponse(query=query, total_results=0, results=[], search_time_ms=0.0)
 
-        vec = _embed(query)
         qdrant_filter = _build_filter(
             court=court,
             year_min=year_min,
@@ -341,16 +375,46 @@ class QdrantSearchService:
         )
 
         client = _get_qdrant_client()
+        limit = top_k * _CHUNK_FETCH_MULTIPLIER
+
         try:
-            raw = client.query_points(
-                collection_name=QDRANT_COLLECTION,
-                query=vec,
-                query_filter=qdrant_filter,
-                limit=top_k * _CHUNK_FETCH_MULTIPLIER,
-                with_payload=True,
-            ).points
+            if search_mode == "keyword":
+                # ── BM25 sparse-only path ──────────────────────────────────────
+                sparse_vec = _embed_sparse(query)
+                raw = client.query_points(
+                    collection_name=QDRANT_COLLECTION,
+                    query=sparse_vec,
+                    using="sparse",
+                    query_filter=qdrant_filter,
+                    limit=limit,
+                    with_payload=True,
+                ).points
+            else:
+                # ── Hybrid RRF path (default) ──────────────────────────────────
+                dense_vec = _embed(query)
+                sparse_vec = _embed_sparse(query)
+                raw = client.query_points(
+                    collection_name=QDRANT_COLLECTION,
+                    prefetch=[
+                        Prefetch(
+                            query=dense_vec,
+                            using="dense",
+                            filter=qdrant_filter,
+                            limit=limit,
+                        ),
+                        Prefetch(
+                            query=sparse_vec,
+                            using="sparse",
+                            filter=qdrant_filter,
+                            limit=limit,
+                        ),
+                    ],
+                    query=FusionQuery(fusion=Fusion.RRF),
+                    limit=limit,
+                    with_payload=True,
+                ).points
         except Exception as exc:
-            logger.error("Qdrant query_points failed: %s", exc)
+            logger.error("Qdrant search failed (mode=%s): %s", search_mode, exc)
             raise
 
         results = _qdrant_hits_to_case_results(raw, db, top_k=top_k)
@@ -586,13 +650,16 @@ class QdrantSearchService:
         Fetch the most relevant chunks from a *specific* document for a question.
         This is the RAG context-retrieval step — it does NOT call the LLM.
 
+        Uses Hybrid RRF (Dense + BM25) scoped to the document_id payload filter,
+        so the LLM receives the best possible context — covering both semantic
+        relevance and exact legal term matches.
+
         Workflow:
-          1. Embed the question.
-          2. Search Qdrant with a document_id payload filter.
-          3. Return the top_k chunks as context for the caller to pass to an LLM.
+          1. Embed the question (dense + sparse).
+          2. Prefetch from both vector slots filtered by document_id.
+          3. Fuse with RRF and return top_k chunks as LLM context.
         """
         question = question.strip()
-        vec = _embed(question)
 
         doc_filter = Filter(
             must=[
@@ -603,17 +670,33 @@ class QdrantSearchService:
             ]
         )
 
+        dense_vec = _embed(question)
+        sparse_vec = _embed_sparse(question)
+
         client = _get_qdrant_client()
         try:
             raw = client.query_points(
                 collection_name=QDRANT_COLLECTION,
-                query=vec,
-                query_filter=doc_filter,
+                prefetch=[
+                    Prefetch(
+                        query=dense_vec,
+                        using="dense",
+                        filter=doc_filter,
+                        limit=top_k * 3,
+                    ),
+                    Prefetch(
+                        query=sparse_vec,
+                        using="sparse",
+                        filter=doc_filter,
+                        limit=top_k * 3,
+                    ),
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
                 limit=top_k,
                 with_payload=True,
             ).points
         except Exception as exc:
-            logger.error("Qdrant ask() search failed: %s", exc)
+            logger.error("Qdrant ask() hybrid search failed: %s", exc)
             raise
 
         chunk_ids = [

@@ -16,7 +16,15 @@ from typing import Any
 
 from dotenv import load_dotenv
 from groq import Groq
-from qdrant_client.http.models import FieldCondition, Filter, MatchValue
+from qdrant_client.http.models import (
+    FieldCondition,
+    Filter,
+    Fusion,
+    FusionQuery,
+    MatchValue,
+    Prefetch,
+    SparseVector,
+)
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -25,6 +33,7 @@ from app.agents.nodes._qdrant import COLLECTION_NAME, get_qdrant
 from app.agents.state import JurisFindState
 from app.db.models import Document
 from app.db.session import DatabaseSession
+from app.services.qdrant_search_service import _embed_sparse
 
 _dotenv_path = Path(__file__).resolve().parents[4] / ".env"
 load_dotenv(dotenv_path=_dotenv_path, override=False)
@@ -53,19 +62,43 @@ def _clean(text: str) -> str:
 
 # ── Retrieval helpers ─────────────────────────────────────────────────────────
 
-def _search_qdrant_by_doc(db: Session, doc_id: str, query_vector: list[float]) -> list[dict]:
-    """Search Qdrant filtered to a single document_id. Returns raw dicts."""
+def _search_qdrant_by_doc(db: Session, doc_id: str, question: str, query_vector: list[float]) -> list[dict]:
+    """
+    Search Qdrant filtered to a single document_id using Hybrid RRF (Dense + BM25).
+
+    Dense vectors find semantically similar chunks; BM25 ensures exact legal
+    terms in the question (section numbers, case names, citations) are matched.
+    Combined via Reciprocal Rank Fusion for the best possible RAG context.
+    """
     client = get_qdrant()
+
+    doc_filter = Filter(
+        must=[FieldCondition(key="document_id", match=MatchValue(value=doc_id))]
+    )
+    sparse_vec: SparseVector = _embed_sparse(question)
+    limit = TOP_K_QDRANT * 3  # prefetch more, RRF re-ranks down to TOP_K_QDRANT
+
     result = client.query_points(
         collection_name=COLLECTION_NAME,
-        query=query_vector,
-        query_filter=Filter(
-            must=[FieldCondition(key="document_id", match=MatchValue(value=doc_id))]
-        ),
+        prefetch=[
+            Prefetch(
+                query=query_vector,
+                using="dense",
+                filter=doc_filter,
+                limit=limit,
+            ),
+            Prefetch(
+                query=sparse_vec,
+                using="sparse",
+                filter=doc_filter,
+                limit=limit,
+            ),
+        ],
+        query=FusionQuery(fusion=Fusion.RRF),
         limit=TOP_K_QDRANT,
         with_payload=True,
     )
-    
+
     # Fetch chunk texts from PostgreSQL
     chunk_ids = [r.payload.get("chunk_id") for r in result.points if r.payload.get("chunk_id")]
     chunk_texts = {}
@@ -78,13 +111,13 @@ def _search_qdrant_by_doc(db: Session, doc_id: str, query_vector: list[float]) -
 
     return [
         {
-            "chunk_text":  chunk_texts.get(r.payload.get("chunk_id", ""), ""),
-            "document_id": r.payload.get("document_id", doc_id),
-            "chunk_id":    r.payload.get("chunk_id", ""),
-            "title":       r.payload.get("title", "Unknown"),
-            "court":       r.payload.get("court", ""),
-            "year":        r.payload.get("year", ""),
-            "citation":    r.payload.get("citation", ""),
+            "chunk_text":  chunk_texts.get(r.payload.get("chunk_id", ""), "") or "",
+            "document_id": r.payload.get("document_id") or doc_id,
+            "chunk_id":    r.payload.get("chunk_id") or "",
+            "title":       r.payload.get("title") or "Unknown",
+            "court":       r.payload.get("court") or "",
+            "year":        r.payload.get("year") or "",
+            "citation":    r.payload.get("citation") or "",
             "score":       r.score,
             "source":      "qdrant",
         }
@@ -211,8 +244,8 @@ def document_chat_node(state: JurisFindState) -> JurisFindState:
                     continue
 
                 if doc.source_type == "legal_case":
-                    chunks = _search_qdrant_by_doc(db, str(doc_id), query_vector)
-                    logger.debug("Qdrant returned %d chunks for doc %s", len(chunks), doc_id)
+                    chunks = _search_qdrant_by_doc(db, str(doc_id), question, query_vector)
+                    logger.debug("Qdrant (RRF hybrid) returned %d chunks for doc %s", len(chunks), doc_id)
                 else:  # "uploaded"
                     chunks = _search_pgvector_by_doc(db, str(doc_id), query_vector)
                     logger.debug("pgvector returned %d chunks for doc %s", len(chunks), doc_id)
